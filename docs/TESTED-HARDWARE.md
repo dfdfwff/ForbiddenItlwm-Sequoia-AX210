@@ -27,7 +27,7 @@ Kexts used with ForbiddenItlwm:
 | BlueToolFixup | 2.7.3 |
 | IntelBTPatcher | Disabled |
 
-The laptop also loads kexts for its own hardware (graphics, audio, touchscreen, input, battery). They aren't part of ForbiddenItlwm.
+The laptop also loads kexts for its own hardware (graphics, audio, touchscreen, input, battery). They aren't part of ForbiddenItlwm. The laptop's complete OpenCore EFI, with ForbiddenItlwm in it, and its setup guide are published at [retropineaple/whateverxe-hp-envy-x360](https://github.com/retropineaple/whateverxe-hp-envy-x360).
 
 ## The iPhone
 
