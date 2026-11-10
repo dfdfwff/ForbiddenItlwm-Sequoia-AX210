@@ -4,7 +4,9 @@
 
 <p align="center"><em>Because AirDrop was never supposed to work on Intel Wi-Fi.</em></p>
 
-**AirDrop for Intel Wi-Fi cards on macOS Tahoe.** ForbiddenItlwm is a fork of AirportItlwm that adds AWDL, the peer-to-peer Wi-Fi link AirDrop runs on. Apple's own Wi-Fi stack does the rest. Normal Wi-Fi stays connected while AirDrop works.
+**AirDrop for Intel Wi-Fi cards on macOS.** ForbiddenItlwm is a fork of AirportItlwm that adds AWDL, the peer-to-peer Wi-Fi link AirDrop runs on. Apple's own Wi-Fi stack does the rest. Normal Wi-Fi stays connected while AirDrop works.
+
+For now it supports only macOS Tahoe (26.7.1). Support for more macOS versions is planned.
 
 > **Status: first public beta (0.1.0-beta1). Experimental.** It has been tested on one machine with one card (Intel AX211) on one macOS build (26.7.1, 25G241): an HP Envy x360 13-bf with an iPhone 11. See [where it was tested](docs/TESTED-HARDWARE.md). Expect rough edges. Test it from a USB stick first, never from your only working EFI.
 
