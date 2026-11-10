@@ -76,6 +76,21 @@ See **[docs/INSTALL.md](docs/INSTALL.md)**. In short:
 - **iPhone only.** iPads and other Macs are expected to work the same way, but haven't been tried.
 - **Boot flags.** The beta still runs on a long list of them. Simpler defaults are planned.
 
+## Disclaimer
+
+**This is beta software.** It is experimental, has been tested on a single machine, and may have serious bugs.
+- **What can go wrong:** it runs in the macOS kernel, so a bug can cause kernel panics, lost Wi-Fi or Bluetooth, failed transfers or a Mac that won't boot from that EFI.
+- **Protect yourself:** keep backups, test from a USB stick, and keep a working EFI you can boot without it.
+- **Your risk:** you use it at your own risk. As the GPL says, it comes with no warranty of any kind, and the authors aren't liable for any damage or data loss.
+
+**AI was used to make this project.** Much of the work was done with an AI assistant (Claude, by Anthropic):
+- the driver code
+- reverse-engineering and analysis
+- the test tools
+- this documentation
+
+The project's maintainer directed the work, decided what to test, and ran every hardware test on real devices. All the results reported here come from those tests. Even so, AI-written code can contain mistakes that testing on one machine won't catch. Treat it accordingly, and please report anything that looks wrong.
+
 ## Credits
 
 ForbiddenItlwm builds on a lot of other people's work:
