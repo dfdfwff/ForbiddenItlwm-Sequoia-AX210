@@ -1,0 +1,13 @@
+.DS_Store
+DerivedData
+build
+xcuserdata
+project.xcworkspace
+FwBinary.cpp
+*.pyc
+MacKernelSDK
+build/
+MacKernelSDK
+include/FwBinary.cpp
+.DS_Store
+*.log
