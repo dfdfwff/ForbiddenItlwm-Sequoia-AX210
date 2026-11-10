@@ -26,13 +26,33 @@ Measured on the [test machine](docs/TESTED-HARDWARE.md) (HP Envy x360 13-bf with
 - **About 15 MB/s:** the iPhone is connected on another 5 GHz channel and its connection is quiet.
 - **About 6 MB/s:** that connection is busy.
 
+### Other Continuity features
+
+Tested with the same Mac and iPhone:
+
+| Feature | State |
+| --- | --- |
+| Handoff | Works in both directions |
+| Universal Clipboard | Works |
+| Instant Hotspot | Doesn't work yet |
+| Continuity Camera | Doesn't work. Probably can't without a T2 chip or Apple silicon |
+
 ## Requirements
 
 - **macOS 26.7.1 (25G241) exactly.** The driver hooks into macOS's Wi-Fi stack at places checked on this build only. On other builds it may fail to load or panic. Don't use it on any other version.
 - **An Intel Wi-Fi card that AirportItlwm supports.** Only the AX211 is tested. The AX210 and AX411, and CNVi radios on Alder Lake and newer, are close relatives and may work. See the [compatibility table](tools/compat/README.md).
 - **An Intel Bluetooth controller** with [IntelBluetoothFirmware](https://github.com/OpenIntelWireless/IntelBluetoothFirmware) and BlueToolFixup ([BrcmPatchRAM](https://github.com/acidanthera/BrcmPatchRAM)), plus [Lilu](https://github.com/acidanthera/Lilu) and this project's **BTLEAdvFixup**. AirDrop finds devices over Bluetooth LE before it uses Wi-Fi.
 - **OpenCore.**
-- **A nearby Wi-Fi network that advertises a country.** The fast mode uses channel 149, which the card's firmware opens only after it learns the country from a nearby network. Most routers advertise one, and so does an iPhone's Personal Hotspot when it's switched on nearby. Some countries don't allow channel 149 at all. Without it, AirDrop falls back to channel 6, which is very slow. The driver never overrides the firmware's regulatory decision.
+- **A nearby Wi-Fi network that advertises a country, in a country that allows channel 149.** Without it, AirDrop falls back to channel 6, which is very slow. See [Channel 149 and your country](#channel-149-and-your-country).
+
+## Channel 149 and your country
+
+AirDrop is fast only on channel 149 (5 GHz, 80 MHz). The Wi-Fi card's firmware decides whether that channel may be used.
+- **It has to learn your country first.** The firmware starts in a "world" mode where channel 149 is listen-only, and opens it after it hears the country from a nearby Wi-Fi network. Most routers advertise their country. An iPhone's Personal Hotspot switched on nearby (you don't need to join it) has also worked.
+- **Your country's radio laws still apply.** In the Linux wireless regulatory database, 44 of 183 countries have no Wi-Fi rule for channels 149 to 161, for example Japan, Turkey, Egypt and Saudi Arabia. A few allow them only at 20 or 40 MHz, for example Kenya, the Central African Republic, Guam, El Salvador and North Korea. Intel's own tables follow the same laws and can be stricter.
+- **Otherwise AirDrop uses channel 6.** It still works there, but very slowly.
+- **The driver never overrides the firmware's decision,** and there's no country setting to change it. `itlwm_cc` only changes the code macOS displays.
+- **The checker tells you:** `tools/compat/check_compat.sh` warns about these countries, and shows whether the firmware actually opened channel 149.
 
 ## Will it work on my Mac?
 
