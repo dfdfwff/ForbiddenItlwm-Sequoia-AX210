@@ -1,6 +1,8 @@
-# ForbiddenItlwm
+<p align="center"><img src="docs/images/logo-512.png" alt="ForbiddenItlwm logo" width="200"></p>
 
-*Because AirDrop was never supposed to work on Intel Wi-Fi.*
+<h1 align="center">ForbiddenItlwm</h1>
+
+<p align="center"><em>Because AirDrop was never supposed to work on Intel Wi-Fi.</em></p>
 
 **AirDrop for Intel Wi-Fi cards on macOS Tahoe.** ForbiddenItlwm is a fork of AirportItlwm that adds AWDL, the peer-to-peer Wi-Fi link AirDrop runs on. Apple's own Wi-Fi stack does the rest. Normal Wi-Fi stays connected while AirDrop works.
 
