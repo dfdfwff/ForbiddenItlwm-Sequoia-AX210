@@ -409,29 +409,21 @@ setCIPHER_KEY(struct apple80211_key *key)
 #ifdef AIRPORT_WCL
     return _fCommandGate->runAction(wclCommand, this, reinterpret_cast<void *>(8), key);
 #else
-
-    XYLog("%s\n", __FUNCTION__);
-    const char* keydump = hexdump(key->key, key->key_len);
-    const char* rscdump = hexdump(key->key_rsc, key->key_rsc_len);
-    const char* eadump = hexdump(key->key_ea.octet, APPLE80211_ADDR_LEN);
+    // Used on Sonoma, which has no WCL. Never log key material, and check every caller length and
+    // index before it is used (security audit L02).
+    if (!key)
+        return kIOReturnBadArgument;
+    if (key->key_len > APPLE80211_KEY_BUFF_LEN || key->key_rsc_len > APPLE80211_RSC_LEN ||
+        key->key_index >= IEEE80211_WEP_NKID)
+        return kIOReturnBadArgument;
+    XYLog("%s: len=%u cipher_type=%u flags=%u index=%u rsc_len=%u\n", __FUNCTION__,
+          key->key_len, key->key_cipher_type, key->key_flags, key->key_index, key->key_rsc_len);
     static_assert(__offsetof(struct apple80211_key, key_ea) == 92, "struct corrupted");
     static_assert(__offsetof(struct apple80211_key, key_rsc_len) == 80, "struct corrupted");
     static_assert(__offsetof(struct apple80211_key, wowl_kck_len) == 100, "struct corrupted");
     static_assert(__offsetof(struct apple80211_key, wowl_kek_len) == 120, "struct corrupted");
     static_assert(__offsetof(struct apple80211_key, wowl_kck_key) == 104, "struct corrupted");
-    if (keydump && rscdump && eadump)
-        XYLog("Set key request: len=%d cipher_type=%d flags=%d index=%d key=%s rsc_len=%d rsc=%s ea=%s\n",
-              key->key_len, key->key_cipher_type, key->key_flags, key->key_index, keydump, key->key_rsc_len, rscdump, eadump);
-    else
-        XYLog("Set key request, but failed to allocate memory for hexdump\n");
-    
-    if (keydump)
-        IOFree((void*)keydump, 3 * key->key_len + 1);
-    if (rscdump)
-        IOFree((void*)rscdump, 3 * key->key_rsc_len + 1);
-    if (eadump)
-        IOFree((void*)eadump, 3 * APPLE80211_ADDR_LEN + 1);
-    
+
     switch (key->key_cipher_type) {
         case APPLE80211_CIPHER_NONE:
             // clear existing key
@@ -444,6 +436,9 @@ setCIPHER_KEY(struct apple80211_key *key)
         case APPLE80211_CIPHER_TKIP:
         case APPLE80211_CIPHER_AES_OCB:
         case APPLE80211_CIPHER_AES_CCM:
+            // setPTK and setGTK use the current BSS node.
+            if (!fHalService->get80211Controller()->ic_bss)
+                return kIOReturnNotReady;
             switch (key->key_flags) {
                 case 4: // PTK
                     setPTK(key->key, key->key_len);
@@ -458,11 +453,15 @@ setCIPHER_KEY(struct apple80211_key *key)
             break;
         case APPLE80211_CIPHER_MSK:
             XYLog("Setting MSK\n");
+            if (!fHalService->get80211Controller()->ic_bss || key->key_len < 32)
+                return kIOReturnBadArgument;
             ieee80211_pmksa_add(fHalService->get80211Controller(), IEEE80211_AKM_8021X,
                                 fHalService->get80211Controller()->ic_bss->ni_macaddr, key->key, 0);
             break;
         case APPLE80211_CIPHER_PMKSA:
             XYLog("Setting WPA PMKSA\n");
+            if (!fHalService->get80211Controller()->ic_bss || key->key_len < 32)
+                return kIOReturnBadArgument;
             ieee80211_pmksa_add(fHalService->get80211Controller(), IEEE80211_AKM_8021X,
                                 fHalService->get80211Controller()->ic_bss->ni_macaddr, key->key, 0);
             break;
@@ -1089,6 +1088,8 @@ setSCAN_REQ(struct apple80211_scan_data *sd)
           sd->ssid,
           ether_sprintf(sd->bssid.octet));
 #endif
+    if (!sd)
+        return kIOReturnBadArgument;
     if (fScanResultWrapping)
         return 22;
     if (ic->ic_state <= IEEE80211_S_INIT)

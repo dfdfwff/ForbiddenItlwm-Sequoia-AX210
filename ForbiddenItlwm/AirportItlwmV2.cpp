@@ -1259,6 +1259,9 @@ void AirportItlwm::fakeScanDone(OSObject *owner, IOTimerEventSource *sender)
 #endif
 }
 
+extern bool itlAWDLBuildAllowed();
+extern const char *itlAWDLBuildStatus();
+
 bool AirportItlwm::init(OSDictionary *properties)
 {
     XYLog("%s\n", __PRETTY_FUNCTION__);
@@ -1459,6 +1462,12 @@ bool AirportItlwm::start(IOService *provider)
 #elif __IO80211_TARGET == __MAC_26_0
     if (version_major != 25) {
         IOLog("ForbiddenItlwm: this kext is for macOS Tahoe; not starting on Darwin %d.%d\n", version_major, version_minor);
+        return false;
+    }
+#elif __IO80211_TARGET == __MAC_14_4
+    // Sonoma 14.4 and later (Darwin 23.4+): the IO80211FamilyV2 API changed at 14.4.
+    if (version_major != 23 || version_minor < 4) {
+        IOLog("ForbiddenItlwm: this kext is for macOS Sonoma 14.4 or later; not starting on Darwin %d.%d\n", version_major, version_minor);
         return false;
     }
 #endif

@@ -3,6 +3,7 @@
 
 --target tahoe    macOS 26.7.x (default)
 --target sequoia  macOS 15.8.x
+--target sonoma   macOS 14.8.x (in development: plain Wi-Fi, no AirDrop yet)
 
 Each target is a separate kext; never load one on the other macOS version."""
 import argparse,concurrent.futures,hashlib,os,plistlib,re,subprocess,sys
@@ -13,6 +14,8 @@ NAME='ForbiddenItlwm';ID='org.forbiddenitlwm.ForbiddenItlwm';VER='0.4.1'
 TARGETS={
     'tahoe':dict(io80211='__MAC_26_0',marker='forbidden-0.4.1-beta1',skip=('macOS15',)),
     'sequoia':dict(io80211='__MAC_15_2',marker='forbidden-0.4.1-beta1-sequoia',skip=('macOS15','macOS26')),
+    # Sonoma 14.4 and later: IO80211FamilyV2 without WCL, as upstream's AirportItlwm-Sonoma14.4 target.
+    'sonoma':dict(io80211='__MAC_14_4',marker='forbidden-0.4.1-beta1-sonoma',skip=('macOS15','macOS26'),wcl=False),
 }
 def sources():
     # The kext's translation units, in link order. Taken from the AirportItlwm-Tahoe target this was forked from.
@@ -41,7 +44,7 @@ __attribute__((visibility("hidden"))) int _kext_apple_cc=__APPLE_CC__;
 }}
 ''')
     base=['xcrun','clang','-arch','x86_64','-O1','-g0','-mmacosx-version-min=10.15','-mkernel','-nostdinc','-fno-builtin','-fno-common','-DKERNEL','-DKERNEL_PRIVATE','-DDRIVER_PRIVATE','-DAPPLE','-DNeXT',
-      '-D__IO80211_TARGET='+T['io80211'],'-DAIRPORT_WCL','-DAIRPORT_VTD','-DAIRPORT','-D__PRIVATE_SPI__','-DIO80211FAMILY_V2','-DIEEE80211_STA_ONLY','-DITLWM_VERSION="2.4.1"','-DGIT_COMMIT="_forbidden"',
+      '-D__IO80211_TARGET='+T['io80211'],*(['-DAIRPORT_WCL','-DAIRPORT_VTD'] if T.get('wcl',True) else []),'-DAIRPORT','-D__PRIVATE_SPI__','-DIO80211FAMILY_V2','-DIEEE80211_STA_ONLY','-DITLWM_VERSION="2.4.1"','-DGIT_COMMIT="_forbidden"',
       '-DITL_FORBIDDEN_BUILD="'+T['marker']+'"','-w','-include',str(R/'itlwm/PrivateSPI.pch'),'-I'+str(sdk/'Headers')]
     for d in ('itl80211/openbsd','itl80211','include'):base+=['-isystem',str(R/d)]
     for d in dirs:base+=['-iquote',str(d)]
@@ -53,7 +56,7 @@ __attribute__((visibility("hidden"))) int _kext_apple_cc=__APPLE_CC__;
         r=subprocess.run(base+extra+['-c',str(src),'-o',str(o)],capture_output=True,text=True)
         if r.returncode:print(f'--- {src}\n{r.stderr[-3000:]}');raise SystemExit(1)
         return o
-    src=sources()+[info]
+    src=[s for s in sources() if T.get('wcl',True) or s.parent.name!='WCL']+[info]
     with concurrent.futures.ThreadPoolExecutor(a.j) as e:objs=list(e.map(compile,src))
     kext=out/(NAME+'.kext')/'Contents';(kext/'MacOS').mkdir(parents=True,exist_ok=True)
     exe=kext/'MacOS'/NAME

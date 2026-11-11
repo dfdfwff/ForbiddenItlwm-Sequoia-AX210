@@ -131,6 +131,12 @@ public:
     CCLogStream *driverLogger;
 #else
     virtual IO80211WorkQueue *getWorkQueue() override;
+    // Sonoma 14.8.9 (23J631) uses IONetworkController's reserved slots 6 and 7. Point them at Apple's
+    // functions, which the SDK still declares as reserved. Declared only: never called from the driver.
+private:
+    virtual void _RESERVEDIONetworkController6() override __asm__("__ZN19IONetworkController20allocatePacketNoWaitEj");
+    virtual void _RESERVEDIONetworkController7() override __asm__("__ZN19IONetworkController18setHardwareAssistsEjj");
+public:
 #endif
     virtual bool requiresExplicitMBufRelease() override {
         return false;

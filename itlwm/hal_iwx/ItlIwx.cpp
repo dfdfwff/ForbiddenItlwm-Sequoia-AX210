@@ -5580,7 +5580,11 @@ extern IOReturn itlAWDLBuildTransmit(IOEthernetController*, mbuf_t*, const uint8
 extern unsigned itlAWDLTransmitHeldShort(IOEthernetController*);
 extern bool itlAWDLServiceTransmit(IOEthernetController*);
 extern unsigned itlAWDLTransmitQueued(IOEthernetController*);
+#else
+// No AirDrop interface on this macOS target: nothing is ever queued for it.
+static inline unsigned itlAWDLTransmitQueued(IOEthernetController*) { return 0; }
 #endif
+extern bool itlAWDLBuildAllowed();
 static bool awdlRx;
 static bool awdlQueueProbe;
 static bool awdlQueueProbeAttempted;
@@ -11220,8 +11224,8 @@ void ItlIwx::iwx_awdl_transport_probe(struct iwx_softc *sc)
         !ic->ic_bss->ni_rates.rs_nrates || !isset(ic->ic_chan_active, awdlFixedChannel) ||
         (channel->ic_flags & (IEEE80211_CHAN_PASSIVE | IEEE80211_CHAN_DFS | IEEE80211_CHAN_NOADHOC)))
         return;
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
     const uint64_t syncNowUS = awdlUptimeUS();
+#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
     if (awdlBaResponseLength && !awdlBurst.count && !awdlResend.held) {
         mbuf_t answer = nullptr;
         if (!mbuf_getpacket(MBUF_DONTWAIT, &answer) && answer && mbuf_maxlen(answer) >= awdlBaResponseLength) {

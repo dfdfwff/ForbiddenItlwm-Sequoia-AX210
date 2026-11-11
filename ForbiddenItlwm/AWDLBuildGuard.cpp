@@ -16,6 +16,14 @@
 #include <libkern/version.h>
 #include <AWDLBuildGuard.hpp>
 
+#if !(defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2))
+// AirDrop isn't ported to this macOS version yet (Sonoma): the driver is plain Wi-Fi, and nothing here
+// may reference Apple's AWDL classes, which this kext would then need at load time.
+bool itlAWDLBuildAllowed() { return false; }
+bool itlAWDLBuildVerified() { return false; }
+const char *itlAWDLBuildStatus() { return "unavailable: AirDrop isn't ported to this macOS version yet"; }
+#else
+
 extern "C" {
 extern const uintptr_t itlNativeAWDLProtocolVtable[] __asm__("__ZTV19IO80211AWDLProtocol");
 void itlAnchorAWDLProtocolD1() __asm__("__ZN19IO80211AWDLProtocolD1Ev");
@@ -120,3 +128,4 @@ const char *itlAWDLBuildStatus()
     itlAWDLBuildAllowed();
     return gStatus;
 }
+#endif
