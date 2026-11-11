@@ -37,6 +37,7 @@ Tested with the same Mac and iPhone:
 | Instant Hotspot | Doesn't work yet |
 | Continuity Camera | Doesn't work yet |
 | iPhone Mirroring | Doesn't work. Probably can't without a T2 chip or Apple silicon |
+| Sidecar | Untested/Unconfirmed |
 
 ## Requirements
 
