@@ -11,8 +11,8 @@ R=Path(__file__).resolve().parents[1]
 NAME='ForbiddenItlwm';ID='org.forbiddenitlwm.ForbiddenItlwm';VER='0.3.1'
 # Per macOS target: the IO80211 header set, the build marker, and which version header directory stays off the quote path.
 TARGETS={
-    'tahoe':dict(io80211='__MAC_26_0',marker='forbidden-0.3.1-test1',skip=('macOS15',)),
-    'sequoia':dict(io80211='__MAC_15_2',marker='forbidden-0.3.1-test1-sequoia',skip=('macOS15','macOS26')),
+    'tahoe':dict(io80211='__MAC_26_0',marker='forbidden-0.3.1-test2',skip=('macOS15',)),
+    'sequoia':dict(io80211='__MAC_15_2',marker='forbidden-0.3.1-test2-sequoia',skip=('macOS15','macOS26')),
 }
 def sources():
     # The kext's translation units, in link order. Taken from the AirportItlwm-Tahoe target this was forked from.
