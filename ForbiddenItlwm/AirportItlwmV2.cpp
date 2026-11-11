@@ -10,7 +10,7 @@
 
 // Build marker shown as ItlwmAWDLInterfaceBuild; tools/build.py sets it per macOS target.
 #ifndef ITL_FORBIDDEN_BUILD
-#define ITL_FORBIDDEN_BUILD "forbidden-0.2.0-beta1"
+#define ITL_FORBIDDEN_BUILD "forbidden-0.3.0-beta1"
 #endif
 
 // -itlawdlsamples: raw samples of native requests, templates and packets in the registry. They can hold

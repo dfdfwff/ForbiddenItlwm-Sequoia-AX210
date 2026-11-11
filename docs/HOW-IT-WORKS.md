@@ -58,7 +58,7 @@ The `awdl0` transmit pool is 2048 packets. With the 128 used during bring-up, lo
 - patches `bluetoothd`'s pages in memory as they're validated (the way BlueToolFixup does) to take the "supported" path
 - adjusts outgoing HCI commands, such as the random address of each advertising set, and takes over IntelBTPatcher's fix-up before the first scan (IntelBTPatcher must be disabled, since Lilu panics if two plugins hook the same function)
 
-Its byte patterns are exact bytes from 25G241's `bluetoothd`. On another build they may not match, and then nothing is changed. `tools/compat/check_compat.sh` reports whether they match a tester's `bluetoothd`.
+Its byte patterns are exact bytes from one `bluetoothd` per macOS version: 25G241's for the Tahoe build and 24H241's (15.8.3) for the Sequoia build. The four sites and the edits are the same; only addresses, two vtable slots and one struct offset differ. On another build the patterns may not match, and then nothing is changed. `tools/compat/check_compat.sh` reports whether they match a tester's `bluetoothd`.
 
 ### 6. Country and channel 149
 
@@ -66,22 +66,28 @@ Intel firmware starts in world mode, where channels 149 to 161 are listen-only. 
 
 ### 7. Which macOS builds AirDrop starts on
 
-`ForbiddenItlwm/AWDLBuildGuard.cpp` decides once, at startup, and only lets AirDrop start when both of these hold:
-- **The kernel is one whose Wi-Fi stack was verified:** 26.7.1 on hardware, and 26.7.2 and 26.7.3 offline. For those two, the Kernel Debug Kits showed the following matching 26.7.1:
+Each macOS version has its own build (`tools/build.py --target tahoe|sequoia`), with that version's IO80211 class declarations, and refuses to start on any other macOS version. `ForbiddenItlwm/AWDLBuildGuard.cpp` then decides once, at startup, and only lets AirDrop start when both of these hold:
+- **The kernel is one whose Wi-Fi stack was verified.** Tahoe: 26.7.1 on hardware, and 26.7.2 and 26.7.3 offline. Sequoia: 15.8 and 15.8.3 offline, and other 15.8.x kernels as "expected". For 26.7.2 and 26.7.3, the Kernel Debug Kits showed the following matching 26.7.1:
   - IOSkywalkFamily is identical.
   - IO80211Family's AWDL, interface, buffer and registration code is instruction for instruction the same.
   - All 568, 505 and 461 slots of the three virtual tables match.
   - Every kernel symbol the driver imports exists.
-- **Apple's `IO80211AWDLProtocol` table, read at runtime,** has the expected functions at six anchor slots spread across it, its own pure methods where expected, and ends after 568 slots. This catches a changed table on any build.
+- **Apple's `IO80211AWDLProtocol` table, read at runtime,** has the expected functions at anchor slots spread across it, its own pure methods where expected, and ends where expected (568 slots on Tahoe, 563 on Sequoia). This catches a changed table on any build.
+
+**Sequoia differs from Tahoe in a few places the driver depends on.** The 15.8 and 15.8.3 Kernel Debug Kits (identical tables) showed:
+- the same 63 AWDL protocol methods in the same order, with about ten base-class methods added or removed before them, and objects 16 bytes smaller
+- `setMacAddress` pure in `IO80211SkywalkInterface` instead of `IO80211VirtualInterface`
+- `IO80211Buffer` without virtual methods: the driver calls its exported functions directly on Sequoia
+- the same Skywalk packet, queue and registration layouts, the same RX metadata layout (RSSI at offset 0x2c) and the same out-of-band request layout
 
 When either fails, the driver behaves like plain AirportItlwm. `-itlawdlanybuild` skips the first check, never the second. The result is published as `ItlwmAWDLBuildCheck`.
 
 ### 8. Link quality, and why it matters beyond AirDrop
 
 macOS publishes each interface's link-quality metric as `State:/Network/Interface/en0/LinkQuality`. Apple Push (`apsd`) won't connect over an interface rated "off" (-2), and iMessage, FaceTime and the account-device lookups that AirDrop between your own devices relies on all need push.
-- **The original problem:** the pre-Skywalk driver set the metric at link-up. On Tahoe that call was commented out, and `IO80211SkywalkInterface::setLQM` is an empty stub, so en0 stayed "off" forever.
+- **The original problem:** the pre-Skywalk driver set the metric at link-up. On Tahoe that call was commented out, and `IO80211SkywalkInterface::setLQM` is an empty stub, so en0 stayed "off" forever. Sequoia's IO80211Family has the same stub, so the Sequoia build reports the metric too.
 - **What ForbiddenItlwm does:** every 2 seconds while connected, it calls `IOSkywalkNetworkInterface::reportLinkQuality` (which sets the kernel's metric) from the signal strength: 100 at -70 dBm or stronger, 50 at -80 dBm or stronger, 10 below. It reports "off" when the link drops.
-- **It also tells WCL the signal:** the signal strength goes into WCL's link-quality update (byte 0 valid, the RSSI at offset 4), which Apple's `handleLqmUpdate` reads.
+- **It also tells WCL the signal (Tahoe only):** the signal strength goes into WCL's link-quality update (byte 0 valid, the RSSI at offset 4), which Apple's `handleLqmUpdate` reads. That structure's layout is only known for Tahoe.
 
 ## Why speed and connect time vary
 
@@ -117,11 +123,12 @@ These each took one or more test boots to learn.
 | `itlwm/hal_iwx/ItlIwx.cpp` | The radio side: the listener context, country handling, receive and transmit, Block Ack, the send gate |
 | `include/AWDL*.hpp` | Frame parsing and building, data framing, peer schedule, regulatory rules. Mostly host-testable |
 | `include/Airport/macOS26/` | Tahoe's native class declarations, for 25G241 |
+| `include/Airport/macOS15/` | Sequoia's native class declarations, for 15.8 (24H23, 24H241) |
 | `BTLEAdvFixup/` | The Bluetooth LE advertising plugin |
 | `tests/`, `tools/test_awdl.py` | Offline tests, many of them on real driver functions extracted into mocks |
 | `tools/build.py`, `tools/sources.txt` | Command Line Tools build of `ForbiddenItlwm.kext` |
 | `tools/build_btleadv.py` | Build of `BTLEAdvFixup.kext` |
-| `tools/abi/` | The virtual table audit against 25G241 |
+| `tools/abi/` | The virtual table audit against 25G241 (Tahoe) and 24H241 (Sequoia) |
 | `ForbiddenItlwm/AWDLBuildGuard.cpp`, `include/AWDLBuildGuard.hpp` | The macOS build check |
 | `tools/awdl_*.py` | Readers for the driver's registry diagnostics |
 | `tools/compat/` | Tester scripts |

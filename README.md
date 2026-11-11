@@ -6,9 +6,9 @@
 
 **AirDrop for Intel Wi-Fi cards on macOS.** ForbiddenItlwm is a fork of AirportItlwm that adds AWDL, the peer-to-peer Wi-Fi link AirDrop runs on. Apple's own Wi-Fi stack does the rest. Normal Wi-Fi stays connected while AirDrop works.
 
-For now it supports only macOS Tahoe: 26.7.1, 26.7.2 and 26.7.3. Support for more Tahoe builds and other macOS versions is planned.
+It supports macOS Tahoe 26.7.x and, from 0.3.0, macOS Sequoia 15.8.x. **Each macOS version has its own kexts:** download the ones for your macOS.
 
-> **Status: public beta (0.2.0-beta1). Experimental.** It has been tested on one machine with one card (Intel AX211) on macOS 26.7.1 (25G241): an HP Envy x360 13-bf with an iPhone 11. 26.7.2 and 26.7.3 were verified offline but haven't been tested on hardware yet. See [where it was tested](docs/TESTED-HARDWARE.md). Expect rough edges. Test it from a USB stick first, never from your only working EFI.
+> **Status: public beta (0.3.0-beta1). Experimental.** It has been tested on one machine with one card (Intel AX211) on macOS 26.7.1 (25G241): an HP Envy x360 13-bf with an iPhone 11. 26.7.2 and 26.7.3 were verified offline but haven't been tested on hardware yet. **The Sequoia build is new and hasn't been tested on any hardware yet:** it was verified offline from Apple's Kernel Debug Kits, and testers are needed. See [where it was tested](docs/TESTED-HARDWARE.md). Expect rough edges. Test it from a USB stick first, never from your only working EFI.
 
 ## What works
 
@@ -42,16 +42,17 @@ Tested with the same Mac and iPhone:
 
 ## Requirements
 
-- **macOS Tahoe 26.7.1, 26.7.2 or 26.7.3.** The driver hooks into macOS's Wi-Fi stack, so each build has to be checked.
+- **macOS Tahoe 26.7.x or macOS Sequoia 15.8.x, with the matching kexts.** The driver hooks into macOS's Wi-Fi stack, so each macOS version gets its own build of ForbiddenItlwm and BTLEAdvFixup, and each build has to be checked. A kext for the wrong macOS version refuses to start.
 
-  | Build | Status |
-  | --- | --- |
-  | 26.7.1 (25G241) | Tested on hardware |
-  | 26.7.2 (25G332) | Wi-Fi side verified offline from Apple's Kernel Debug Kit. Bluetooth side and hardware not tested yet |
-  | 26.7.3 (25G342) | Wi-Fi side verified offline from Apple's Kernel Debug Kit. Bluetooth side and hardware not tested yet |
-  | Any other build | AirDrop stays off and normal Wi-Fi works |
+  | macOS | Build | Status |
+  | --- | --- | --- |
+  | Tahoe | 26.7.1 (25G241) | Tested on hardware |
+  | Tahoe | 26.7.2 (25G332), 26.7.3 (25G342) | Wi-Fi side verified offline from Apple's Kernel Debug Kit. Bluetooth side and hardware not tested yet |
+  | Sequoia | 15.8 (24H23), 15.8.3 (24H241) | Wi-Fi side verified offline from Apple's Kernel Debug Kits. BTLEAdvFixup's patterns match 15.8.3. Not tested on hardware yet |
+  | Sequoia | 15.8.1 (24H32), 15.8.2 (24H232) | Expected to work (same kernel family), not checked offline. BTLEAdvFixup's patterns may not match |
+  | Any other build | | AirDrop stays off and normal Wi-Fi works |
 
-  The driver checks the build itself when it starts. On a build it doesn't know, it keeps AirDrop off instead of risking a kernel panic. BTLEAdvFixup's patterns are exact bytes from 26.7.1's `bluetoothd`. On other builds, `tools/compat/check_compat.sh` shows whether they still match.
+  The driver checks the build itself when it starts. On a build it doesn't know, it keeps AirDrop off instead of risking a kernel panic. BTLEAdvFixup's patterns are exact bytes from one `bluetoothd` per macOS version (26.7.1 and 15.8.3). On other builds, `tools/compat/check_compat.sh` shows whether they still match.
 - **An Intel Wi-Fi card that AirportItlwm supports.** Only the AX211 is tested. The AX210 and AX411, and CNVi radios on Alder Lake and newer, are close relatives and may work. See the [compatibility table](tools/compat/README.md).
 - **An Intel Bluetooth controller** with [IntelBluetoothFirmware](https://github.com/OpenIntelWireless/IntelBluetoothFirmware) and BlueToolFixup ([BrcmPatchRAM](https://github.com/acidanthera/BrcmPatchRAM)), plus [Lilu](https://github.com/acidanthera/Lilu) and this project's **BTLEAdvFixup**. AirDrop finds devices over Bluetooth LE before it uses Wi-Fi.
 - **OpenCore.**
@@ -79,7 +80,7 @@ See [tools/compat/README.md](tools/compat/README.md). If your card isn't support
 ## Install
 
 See **[docs/INSTALL.md](docs/INSTALL.md)**. In short:
-1. Build the two kexts, or take them from a release.
+1. Build the two kexts for your macOS version, or take them from a release: the Tahoe zips for 26.7.x, the Sequoia zips for 15.8.x.
 2. On a USB stick with a copy of your EFI, replace `AirportItlwm.kext` with `ForbiddenItlwm.kext` and add `BTLEAdvFixup.kext`.
 3. Add the boot flags from [docs/BOOT-FLAGS.md](docs/BOOT-FLAGS.md).
 4. Boot from the stick and check.
@@ -100,7 +101,7 @@ See **[docs/INSTALL.md](docs/INSTALL.md)**. In short:
 
 ## Known limitations
 
-- **Three macOS builds.** 26.7.1 to 26.7.3. On any other build the driver keeps AirDrop off. 26.7.2 and 26.7.3 still need reports from real hardware.
+- **Few macOS builds.** Tahoe 26.7.1 to 26.7.3 and Sequoia 15.8 to 15.8.3. On any other build the driver keeps AirDrop off. Everything except 26.7.1 still needs reports from real hardware, and Sequoia hasn't been booted at all yet.
 - **One tested card.** Everything except the AX211 is untested.
 - **Cold iPhone → Mac connects are slow,** usually 3 to 10 s and sometimes longer. The time goes into the iPhone finding the Mac before any data moves. This is the main open problem.
 - **No sleep and wake testing** beyond normal use on the test machine.
@@ -128,7 +129,7 @@ The project's maintainer directed the work, decided what to test, and ran every 
 ForbiddenItlwm builds on a lot of other people's work:
 
 - **[itlwm / AirportItlwm](https://github.com/OpenIntelWireless/itlwm)** by zxystd and the OpenIntelWireless contributors: the Intel Wi-Fi driver this is built on.
-- **laobamac**, for AirportItlwm on macOS Tahoe (version 2.4.1), the exact code this fork starts from.
+- **laobamac**, for AirportItlwm on macOS Tahoe and Sequoia (version 2.4.1), the exact code this fork starts from, including the native Sequoia Wi-Fi support the Sequoia build is based on.
 - **kgp-macPro/AirportItlwm-Tahoe**, named in the base code's notes as the basis of its DMA design.
 - **[OpenBSD](https://www.openbsd.org)** for net80211 and the iwx, iwm and iwn drivers.
 - **[Linux iwlwifi](https://wireless.wiki.kernel.org/en/users/drivers/iwlwifi)** and **Intel**, for the firmware and as a reference. No code was copied.

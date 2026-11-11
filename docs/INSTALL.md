@@ -1,10 +1,14 @@
 # Installing ForbiddenItlwm
 
-This beta has been tested on one machine: an HP Envy x360 13-bf with an Intel AX211, on macOS 26.7.1 (25G241). 26.7.2 (25G332) and 26.7.3 (25G342) were verified offline. It was booted with OpenCore 1.0.8, with an iPhone 11. The details are in [TESTED-HARDWARE.md](TESTED-HARDWARE.md). Read the whole page before you start.
+This beta has been tested on one machine: an HP Envy x360 13-bf with an Intel AX211, on macOS 26.7.1 (25G241). 26.7.2 (25G332) and 26.7.3 (25G342) were verified offline. The Sequoia build (15.8.x) was verified offline only and hasn't been booted on any hardware yet. It was booted with OpenCore 1.0.8, with an iPhone 11. The details are in [TESTED-HARDWARE.md](TESTED-HARDWARE.md). Read the whole page before you start.
 
 ## Before you start
 
-- **Check your macOS build:** `sw_vers -buildVersion` should print `25G241`, `25G332` or `25G342`. On any other build the driver keeps AirDrop off and works as plain Wi-Fi.
+- **Check your macOS build:** `sw_vers -buildVersion`.
+  - **Tahoe:** `25G241`, `25G332` or `25G342`. Use the Tahoe kexts.
+  - **Sequoia:** `24H23` (15.8) or `24H241` (15.8.3) were checked offline; `24H32` (15.8.1) and `24H232` (15.8.2) are expected to work. Use the Sequoia kexts.
+  - On any other build the driver keeps AirDrop off and works as plain Wi-Fi.
+- **Use the kexts for your macOS version.** ForbiddenItlwm and BTLEAdvFixup are built separately for Tahoe and for Sequoia. A ForbiddenItlwm built for the other version refuses to start, and BTLEAdvFixup's patterns won't match.
 - **Run the checker:** `bash tools/compat/check_compat.sh`. It tells you whether your card and Bluetooth are likely to work.
 - **Use a USB stick.** Copy your working EFI folder to a USB stick and make every change there. Your internal EFI stays as it is, so if anything goes wrong you just boot without the stick.
 - **Know the rollback:** boot from your internal EFI, or put the original `AirportItlwm.kext` and `config.plist` back on the stick.
@@ -13,8 +17,8 @@ This beta has been tested on one machine: an HP Envy x360 13-bf with an Intel AX
 
 | Kext | Where from | Notes |
 | --- | --- | --- |
-| `ForbiddenItlwm.kext` | This repository | Replaces `AirportItlwm.kext` |
-| `BTLEAdvFixup.kext` | This repository | Lets macOS start Bluetooth LE advertising on an Intel controller |
+| `ForbiddenItlwm.kext` | This repository, Tahoe or Sequoia build | Replaces `AirportItlwm.kext` |
+| `BTLEAdvFixup.kext` | This repository, Tahoe or Sequoia build | Lets macOS start Bluetooth LE advertising on an Intel controller |
 | `Lilu.kext` | [acidanthera/Lilu](https://github.com/acidanthera/Lilu) | Tested with 1.7.2 |
 | `IntelBluetoothFirmware.kext` | [OpenIntelWireless/IntelBluetoothFirmware](https://github.com/OpenIntelWireless/IntelBluetoothFirmware) | Tested with 2.5.1 |
 | `BlueToolFixup.kext` | [acidanthera/BrcmPatchRAM](https://github.com/acidanthera/BrcmPatchRAM) | Tested with 2.7.3 |
@@ -31,13 +35,19 @@ You need the Xcode Command Line Tools (`xcode-select --install`). Full Xcode isn
    git clone https://github.com/acidanthera/MacKernelSDK
    ```
 
-2. Build the Wi-Fi driver:
+2. Build the Wi-Fi driver for your macOS version. For Tahoe:
 
    ```bash
    python3 tools/build.py --out build
    ```
 
-   The result is `build/ForbiddenItlwm.kext`. The first build also generates `include/FwBinary.cpp` from the firmware in `itlwm/firmware`.
+   For Sequoia:
+
+   ```bash
+   python3 tools/build.py --target sequoia --out build-sequoia
+   ```
+
+   The result is `ForbiddenItlwm.kext` in the output folder. The first build also generates `include/FwBinary.cpp` from the firmware in `itlwm/firmware`.
 
 3. Build BTLEAdvFixup. It needs the Lilu SDK, which comes with Lilu's **DEBUG** release. Make a folder holding `MacKernelSDK` and the DEBUG `Lilu.kext`, then:
 
@@ -45,9 +55,9 @@ You need the Xcode Command Line Tools (`xcode-select --install`). Full Xcode isn
    python3 tools/build_btleadv.py --out build/btleadv --tree /path/to/that/folder
    ```
 
-   The result is `build/btleadv/BTLEAdvFixup.kext`.
+   For Sequoia, add `--target sequoia` and use another output folder. The result is `BTLEAdvFixup.kext` in the output folder.
 
-4. Optional, for developers: run the offline tests and the ABI audit. The audit checks every virtual slot of the AWDL interface against macOS 26.7.1's own table, and must report 568 of 568:
+4. Optional, for developers: run the offline tests and the ABI audit. The audit checks every virtual slot of the AWDL interface against its macOS version's own table. It must report 568 of 568 for Tahoe, and 563 of 563 for Sequoia with `--target sequoia --build build-sequoia`:
 
    ```bash
    python3 tools/test_awdl.py
@@ -73,6 +83,13 @@ All of this goes on the **USB stick's** EFI.
    | 4 | `BTLEAdvFixup.kext` | `Contents/MacOS/BTLEAdvFixup` | `MinKernel` 21.0.0 |
    | 5 | `ForbiddenItlwm.kext` | `Contents/MacOS/ForbiddenItlwm` | Replaces the old `AirportItlwm.kext` entry |
 
+   **Recommended:** limit `ForbiddenItlwm.kext` and `BTLEAdvFixup.kext` to their macOS version with `MinKernel` and `MaxKernel`, so a stick moved to another macOS doesn't load the wrong build:
+
+   | Build | `MinKernel` | `MaxKernel` |
+   | --- | --- | --- |
+   | Tahoe | 25.0.0 | 25.99.99 |
+   | Sequoia | 24.0.0 | 24.99.99 |
+
    Set `IntelBTPatcher.kext` to `Enabled` = false if you have it. This is required. Make sure no `AirportItlwm.kext` or `itlwm.kext` entry is still enabled.
 
 3. **Boot arguments:** add the flags from [BOOT-FLAGS.md](BOOT-FLAGS.md) to `boot-args` under `NVRAM` → `Add` → `7C436110-AB2A-4BBB-A880-FE41995C9F82`. Keep your existing arguments. Because OpenCore only writes NVRAM keys listed under `Delete`, check that `boot-args` is listed there for the same GUID.
@@ -89,7 +106,7 @@ All of this goes on the **USB stick's** EFI.
    ioreg -l -w0 | grep -E '"ItlwmAWDLInterfaceBuild"|"ITLAWDLCoex(Added|Channel|CountryLearned)"'
    ```
 
-   You should see `forbidden-0.2.0-beta1`, `Added` Yes, `Channel` 149 and `CountryLearned` Yes. `Channel` 6 means the firmware hasn't opened channel 149: see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+   You should see `forbidden-0.3.0-beta1` (`forbidden-0.3.0-beta1-sequoia` on Sequoia), `Added` Yes, `Channel` 149 and `CountryLearned` Yes. `Channel` 6 means the firmware hasn't opened channel 149: see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 4. Or run `bash tools/compat/check_compat.sh` again. It now also reads the listener's state.
 5. Turn on AirDrop on both devices. Contacts Only works when the iPhone and the Mac share an Apple Account or know each other as contacts. Otherwise use Everyone for 10 Minutes.

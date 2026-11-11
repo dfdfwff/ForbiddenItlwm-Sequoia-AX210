@@ -12,7 +12,7 @@ Every result in these docs comes from this one setup. Anything else is untested.
 | Graphics | Intel Iris Xe (internal 2880 × 1800 OLED) |
 | Wi-Fi | Intel AX211 (Wi-Fi 6E, CNVi, PCI device 8086:51F0), firmware `iwlwifi-so-a0-gf-a0-68` |
 | Bluetooth | Intel AX211 Bluetooth on USB, 8087:0033 (Bluetooth 5.3), firmware loaded by IntelBluetoothFirmware |
-| macOS | macOS Tahoe 26.7.1 (25G241). 26.7.2 (25G332) and 26.7.3 (25G342) verified offline only |
+| macOS | macOS Tahoe 26.7.1 (25G241). 26.7.2 (25G332) and 26.7.3 (25G342) verified offline only. Sequoia 15.8.x not tested |
 | SMBIOS | MacBookPro16,2 |
 | Bootloader | OpenCore 1.0.8 (release build) |
 
@@ -20,7 +20,7 @@ Kexts used with ForbiddenItlwm:
 
 | Kext | Version |
 | --- | --- |
-| ForbiddenItlwm | 0.1.0-beta1 and 0.2.0-beta1 |
+| ForbiddenItlwm | 0.1.0-beta1 and 0.2.0-beta1 (Tahoe) |
 | BTLEAdvFixup | 0.8.0 |
 | Lilu | 1.7.2 |
 | IntelBluetoothFirmware | 2.5.1 |
@@ -52,6 +52,7 @@ The laptop also loads kexts for its own hardware (graphics, audio, touchscreen, 
 ## Not tested
 
 - Other Intel cards, and other laptops with an AX211
-- Other macOS builds, including 26.7.2
+- Other macOS builds, including 26.7.2 and 26.7.3
+- **macOS Sequoia: the Sequoia build hasn't been booted on any hardware.** It was verified offline from the 15.8 and 15.8.3 Kernel Debug Kits
 - iPads, other iPhones, other Macs
 - Sleep and wake during a transfer, and long-term stability
