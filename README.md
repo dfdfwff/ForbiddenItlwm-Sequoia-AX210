@@ -10,6 +10,21 @@ It supports macOS Tahoe 26.7.x and, from 0.3.0, macOS Sequoia 15.8.x. **Each mac
 
 > **Status: public beta (0.3.0-beta1). Experimental.** It has been tested on one machine with one card (Intel AX211) on macOS 26.7.1 (25G241): an HP Envy x360 13-bf with an iPhone 11. 26.7.2 and 26.7.3 were verified offline but haven't been tested on hardware yet. **The Sequoia build is new and hasn't been tested on any hardware yet:** it was verified offline from Apple's Kernel Debug Kits, and testers are needed. See [where it was tested](docs/TESTED-HARDWARE.md). Expect rough edges. Test it from a USB stick first, never from your only working EFI.
 
+## ⚠️ Read this first
+
+> [!WARNING]
+> **Use it at your own risk.** ForbiddenItlwm is experimental beta software that runs inside the macOS kernel. A bug can cause kernel panics, bootloops, lost Wi-Fi or Bluetooth, failed transfers, or a hackintosh that won't boot from that EFI. It comes with no warranty of any kind, and I am not liable for any damage or data loss.
+
+> [!IMPORTANT]
+> **This project was built with the use of AI.** Most of the driver code, the reverse-engineering and the test tools were written with the help of AI (Claude). I am not a professional kernel developer. I closely monitored and directed the work, researched and reviewed it, and ran every hardware test on my own hardware, but AI written code can still contain mistakes that testing on a few machines won't catch. If you'd rather not run AI-assisted kernel code, please don't install it.
+
+**Before you install:**
+- Test from a USB stick with a copy of your EFI, never your only working one.
+- Keep backups, and a working EFI you can boot without it.
+- Check the [requirements](#requirements) and run the [compatibility checker](#will-it-work-on-my-hackintosh) first.
+
+All the hardware results the project reports come from the maintainer's own tests. Reports from other users are marked as such, and the Sequoia build has only been checked offline so far. Please report anything that looks wrong.
+
 ## What works
 
 Measured on the [test machine](docs/TESTED-HARDWARE.md) (HP Envy x360 13-bf with an AX211, macOS 26.7.1, iPhone 11), sending 100 MB files to and from an iPhone, with the hackintosh connected to normal 5 GHz Wi-Fi:
@@ -121,21 +136,6 @@ These are plans, not promises. There are no dates, and the order isn't fixed.
 - **Fewer boot flags:** sensible defaults, so the beta doesn't need its long list of flags.
 - **A unified Bluetooth kext that survives macOS updates:** a Bluetooth kext made for ForbiddenItlwm, replacing BTLEAdvFixup, IntelBluetoothFirmware and BlueToolFixup, so all wireless connectivity needs just two kexts besides Lilu. Its patches would keep working across small macOS updates.
 - **AirPlay to the hackintosh, Sidecar and Universal Control:** these also use Apple's peer-to-peer links. None has been tried yet.
-
-## Disclaimer
-
-**This is beta software.** It is experimental, has been tested on a single machine, and may have serious bugs.
-- **What can go wrong:** it runs in the macOS kernel, so a bug can cause kernel panics, lost Wi-Fi or Bluetooth, failed transfers or a hackintosh that won't boot from that EFI.
-- **Protect yourself:** keep backups, test from a USB stick, and keep a working EFI you can boot without it.
-- **Your risk:** you use it at your own risk. As the GPL says, it comes with no warranty of any kind, and the authors aren't liable for any damage or data loss.
-
-**AI was used to make this project.** Much of the work was done with an AI assistant (Claude, by Anthropic):
-- the driver code
-- reverse-engineering and analysis
-- the test tools
-- this documentation
-
-The project's maintainer directed the work, decided what to test, and ran every hardware test on real devices. All the hardware results the project reports come from those tests; reports from other users are marked as such, and the Sequoia build has only been checked offline so far. Even so, AI-written code can contain mistakes that testing on one machine won't catch. Treat it accordingly, and please report anything that looks wrong.
 
 ## Credits
 
