@@ -59,6 +59,16 @@ int main(){
         // A set known only by its own address works before any general address arrives.
         State e{};uint8_t m[10]={0x35,0x20,7,4};memcpy(m+4,a2,6);onCommand(e,m,10,true);
         params(p,4,1);auto o=onCommand(e,p,28,true);assert(o.sendSetAddress&&!memcmp(o.output+4,a2,6));
+        // Removing a set forgets its own address: a set made later with that handle gets the
+        // general address, never the one from before the rotation.
+        {State q{};uint8_t ra[9]={5,0x20,6};memcpy(ra+3,a0,6);onCommand(q,ra,9,true);
+         uint8_t sa[10]={0x35,0x20,7,5};memcpy(sa+4,a3,6);onCommand(q,sa,10,true);assert(q.knownSetAddresses&(1U<<5));
+         uint8_t rm[4]={0x3c,0x20,1,5};onCommand(q,rm,4,true);assert(!(q.knownSetAddresses&(1U<<5)));
+         params(p,5,1);auto v=onCommand(q,p,28,true);assert(v.sendSetAddress&&!memcmp(v.output+4,a0,6));
+         onCommand(q,sa,10,true);uint8_t clr[3]={0x3d,0x20,0};onCommand(q,clr,3,true);
+         assert(!q.knownSetAddresses&&!q.addressedSets);
+         // An out-of-range handle changes nothing.
+         onCommand(q,sa,10,true);uint8_t bad[4]={0x3c,0x20,1,40};onCommand(q,bad,4,true);assert(q.knownSetAddresses&(1U<<5));}
         // Reset forgets per-set addresses too.
         uint8_t rst[3]={3,0xc,0};onCommand(r,rst,3,true);assert(!r.knownSetAddresses);
     }

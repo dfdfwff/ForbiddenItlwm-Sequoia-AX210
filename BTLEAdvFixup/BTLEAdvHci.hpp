@@ -78,10 +78,19 @@ inline Action onCommand(State &s, const uint8_t *hci, size_t length, bool extend
         }
         break;
     case kOpRemoveSet:
-        if (length >= 4 && hci[3] < 32) s.addressedSets &= ~(1U << hci[3]);
+        // A removed set forgets its address too: a set made later with the same handle must not be
+        // given an address from before bluetoothd rotated it.
+        if (length >= 4 && hci[3] < 32) {
+            s.addressedSets &= ~(1U << hci[3]);
+            s.knownSetAddresses &= ~(1U << hci[3]);
+            for (unsigned i = 0; i < 6; ++i) s.setAddress[hci[3]][i] = 0;
+        }
         break;
     case kOpClearSets:
         s.addressedSets = 0;
+        s.knownSetAddresses = 0;
+        for (auto &address : s.setAddress)
+            for (unsigned i = 0; i < 6; ++i) address[i] = 0;
         break;
     case kOpLeEventMask:
         // Extended scanning reports are bit 12, which bluetoothd leaves off for this chip.

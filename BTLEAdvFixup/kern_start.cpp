@@ -37,38 +37,55 @@ static void patched_cs_validate_page(vnode_t vp, memory_object_t pager, memory_o
 // the required order are added here, after the command they depend on. Their completion
 // events reach bluetoothd as unmatched, as they already do for IntelBTPatcher's command.
 static mach_vm_address_t orig_device_request {};
+// deviceRequest runs on many threads at once. hciState is only read or changed with hciLock held,
+// never across a USB call, and belongs to the one controller in hciOwner.
 static BTLEAdv::State hciState {};
+static IOLock *hciLock {};
+static void *hciOwner {};
+// An added command never waits longer than this, even when the caller's request had no timeout.
+static constexpr uint32_t kExtraTimeoutMS = 1000;
 
 static IOReturn patched_device_request(void *that, IOService *provider, StandardUSB::DeviceRequest &request, void *data,
                                        IOMemoryDescriptor *descriptor, unsigned int &length,
                                        IOUSBHostCompletion *completion, uint32_t timeout);
 
 // Evidence for tests, in the I/O Registry root. Set only on rare events, in thread context.
-static uint32_t extraCommands {}, setAddresses {};
+static uint32_t extraCommands {}, setAddresses {}, extraFailures {};
 static void noteHook(const char *key, uint32_t value) {
     IORegistryEntry::getRegistryRoot()->setProperty(key, value, 32);
 }
 
+// Intel's vendor ID is also on hubs and other devices. Without the controller's product name, it
+// must at least be a wireless controller (USB class 0xE0).
 static bool isIntelBluetooth(void *that) {
     auto *device = static_cast<IORegistryEntry *>(that);
     auto *vendor = OSDynamicCast(OSNumber, device->getProperty("idVendor"));
-    auto *name = OSDynamicCast(OSString, device->getProperty("USB Product Name"));
-    return vendor && vendor->unsigned32BitValue() == 0x8087 && (!name || name->isEqualTo("Bluetooth USB Host Controller"));
+    if (!vendor || vendor->unsigned32BitValue() != 0x8087)
+        return false;
+    if (auto *name = OSDynamicCast(OSString, device->getProperty("USB Product Name")))
+        return name->isEqualTo("Bluetooth USB Host Controller");
+    auto *deviceClass = OSDynamicCast(OSNumber, device->getProperty("bDeviceClass"));
+    return deviceClass && deviceClass->unsigned32BitValue() == 0xE0;
 }
 
-static void sendExtra(void *that, IOService *provider, const StandardUSB::DeviceRequest &request,
-                      const uint8_t *bytes, size_t size, uint32_t timeout) {
+static IOReturn sendExtra(void *that, IOService *provider, const StandardUSB::DeviceRequest &request,
+                          const uint8_t *bytes, size_t size, uint32_t timeout) {
     auto *extra = IOBufferMemoryDescriptor::withBytes(bytes, size, kIODirectionOut);
     if (!extra)
-        return;
+        return kIOReturnNoMemory;
     StandardUSB::DeviceRequest extraRequest = request;
     extraRequest.wLength = uint16_t(size);
     unsigned int extraLength = uint32_t(size);
-    if (extra->prepare(kIODirectionOut) == kIOReturnSuccess) {
-        FunctionCast(patched_device_request, orig_device_request)(that, provider, extraRequest, nullptr, extra, extraLength, nullptr, timeout);
+    // Synchronous (no completion), so bounded: a stalled controller can't hold the thread forever.
+    const uint32_t extraTimeout = timeout == 0 || timeout > kExtraTimeoutMS ? kExtraTimeoutMS : timeout;
+    IOReturn result = extra->prepare(kIODirectionOut);
+    if (result == kIOReturnSuccess) {
+        result = FunctionCast(patched_device_request, orig_device_request)(that, provider, extraRequest, nullptr, extra,
+                                                                           extraLength, nullptr, extraTimeout);
         extra->complete(kIODirectionOut);
     }
     extra->release();
+    return result;
 }
 
 static IOReturn patched_device_request(void *that, IOService *provider, StandardUSB::DeviceRequest &request, void *data,
@@ -78,7 +95,8 @@ static IOReturn patched_device_request(void *that, IOService *provider, Standard
     size_t hciLength = 0;
     // Every USB device comes through here, so only look at the Intel Bluetooth controller.
     // Class requests to the device carry HCI commands; bRequest isn't reliable for this.
-    if ((request.bmRequestType & 0x80) == 0 && (request.bmRequestType & 0x60) == 0x20 && isIntelBluetooth(that)) {
+    // HCI commands are class requests, host to device, addressed to the device (or its interface).
+    if (hciLock && (request.bmRequestType == 0x20 || request.bmRequestType == 0x21) && isIntelBluetooth(that)) {
         if (data) {
             hciLength = min(size_t(request.wLength), sizeof(hci));
             lilu_os_memcpy(hci, data, hciLength);
@@ -88,7 +106,20 @@ static IOReturn patched_device_request(void *that, IOService *provider, Standard
             descriptor->complete(kIODirectionOut);
         }
     }
-    if (BTLEAdv::wantsLegacyScanAddress(hciState, hci, hciLength)) {
+    bool legacyScanAddress = false;
+    BTLEAdv::Action action {};
+    if (hciLength) {
+        IOLockLock(hciLock);
+        // A different controller than last time starts from nothing.
+        if (hciOwner != that) {
+            hciState = BTLEAdv::State{};
+            hciOwner = that;
+        }
+        legacyScanAddress = BTLEAdv::wantsLegacyScanAddress(hciState, hci, hciLength);
+        action = BTLEAdv::onCommand(hciState, hci, hciLength, patchScanning);
+        IOLockUnlock(hciLock);
+    }
+    if (legacyScanAddress) {
         // IntelBTPatcher's workaround, sent before the scan command like the original.
         uint8_t fixed[9] = {0x05, 0x20, 0x06};
         lilu_os_memcpy(fixed + 3, BTLEAdv::kFixedPatcherAddress, 6);
@@ -99,13 +130,25 @@ static IOReturn patched_device_request(void *that, IOService *provider, Standard
         sawCommand = true;
         noteHook("BTLEAdvFirstRequest", request.bRequest);
     }
-    const auto action = BTLEAdv::onCommand(hciState, hci, hciLength, patchScanning);
     const IOReturn result = FunctionCast(patched_device_request, orig_device_request)(that, provider, request, data, descriptor, length, completion, timeout);
     if (action.sendSetAddress || action.sendEventMask) {
-        sendExtra(that, provider, request, action.output, action.outputLength, timeout);
-        noteHook("BTLEAdvExtraCommands", ++extraCommands);
-        if (action.sendSetAddress)
-            noteHook("BTLEAdvSetAddresses", ++setAddresses);
+        // Only after the command it depends on was accepted. A set address that didn't go out is
+        // forgotten, so the next parameters command for that set tries again.
+        const IOReturn extra = result == kIOReturnSuccess ?
+            sendExtra(that, provider, request, action.output, action.outputLength, timeout) : result;
+        if (action.sendSetAddress && extra != kIOReturnSuccess) {
+            IOLockLock(hciLock);
+            if (hciOwner == that)
+                hciState.addressedSets &= ~(1U << action.output[3]);
+            IOLockUnlock(hciLock);
+        }
+        if (extra == kIOReturnSuccess) {
+            noteHook("BTLEAdvExtraCommands", ++extraCommands);
+            if (action.sendSetAddress)
+                noteHook("BTLEAdvSetAddresses", ++setAddresses);
+        } else {
+            noteHook("BTLEAdvExtraFailures", ++extraFailures);
+        }
     }
     return result;
 }
@@ -137,8 +180,9 @@ PluginConfiguration ADDPR(config) {
             if (!patcher.routeMultipleLong(KernelPatcher::KernelID, &route, 1))
                 SYSLOG("btleadv", "failed to route cs validation");
         });
+        hciLock = IOLockAlloc();
         lilu.onKextLoadForce(&usbHostInfo, 1, [](void *, KernelPatcher &patcher, size_t index, mach_vm_address_t address, size_t size) {
-            if (index != usbHostInfo.loadIndex)
+            if (index != usbHostInfo.loadIndex || !hciLock)
                 return;
             KernelPatcher::RouteRequest route(
                 "__ZN15IOUSBHostDevice13deviceRequestEP9IOServiceRN11StandardUSB13DeviceRequestEPvP18IOMemoryDescriptorRjP19IOUSBHostCompletionj",
