@@ -102,6 +102,13 @@ static int ieeeChanFlag2apple(int flags, int bw)
 void AirportItlwmSkywalkInterface::associateSSID(uint8_t *ssid, uint32_t ssid_len, const struct ether_addr &bssid, uint32_t authtype_lower, uint32_t authtype_upper, uint8_t *key, uint32_t key_len, int key_index)
 {
     struct ieee80211com *ic = fHalService->get80211Controller();
+    // Caller lengths are copied into fixed fields below: the SSID into 32 bytes, the PSK as 32 bytes,
+    // and the WEP key index into a 4-entry array. Refuse anything that doesn't fit.
+    if (!ic || (ssid_len && !ssid) || ssid_len > IEEE80211_NWID_LEN || key_len > APPLE80211_KEY_BUFF_LEN ||
+        (key_len && !key) || key_index < 0 || key_index >= IEEE80211_WEP_NKID) {
+        XYLog("%s: refused, ssid_len=%u key_len=%u key_index=%d\n", __FUNCTION__, ssid_len, key_len, key_index);
+        return;
+    }
     
     ieee80211_disable_rsn(ic);
     ieee80211_disable_wep(ic);
@@ -389,6 +396,8 @@ getAUTH_TYPE(struct apple80211_authtype_data *ad)
 IOReturn AirportItlwmSkywalkInterface::
 setAUTH_TYPE(struct apple80211_authtype_data *ad)
 {
+    if (!ad)
+        return kIOReturnBadArgument;
     current_authtype_lower = ad->authtype_lower;
     current_authtype_upper = ad->authtype_upper;
     return kIOReturnSuccess;
@@ -887,7 +896,14 @@ getNSS(struct apple80211_nss_data *data)
 IOReturn AirportItlwmSkywalkInterface::
 setASSOCIATE(struct apple80211_assoc_data *ad)
 {
-    XYLog("%s [%s] mode=%d ad_auth_lower=%d ad_auth_upper=%d rsn_ie_len=%d%s%s%s%s%s%s%s\n", __FUNCTION__, ad->ad_ssid, ad->ad_mode, ad->ad_auth_lower, ad->ad_auth_upper, ad->ad_rsn_ie_len,
+    // Joins normally come through setWCL_ASSOCIATE, whose decoder bounds every length. This legacy
+    // entry point used to read and copy caller lengths unchecked; check them before anything else.
+    if (!ad)
+        return kIOReturnBadArgument;
+    if (ad->ad_ssid_len > APPLE80211_MAX_SSID_LEN || ad->ad_key.key_len > APPLE80211_KEY_BUFF_LEN ||
+        ad->ad_key.key_index >= IEEE80211_WEP_NKID || size_t(ad->ad_rsn_ie[1]) + 2 > APPLE80211_MAX_RSN_IE_LEN)
+        return kIOReturnBadArgument;
+    XYLog("%s [%.*s] mode=%d ad_auth_lower=%d ad_auth_upper=%d rsn_ie_len=%d%s%s%s%s%s%s%s\n", __FUNCTION__, int(ad->ad_ssid_len), ad->ad_ssid, ad->ad_mode, ad->ad_auth_lower, ad->ad_auth_upper, ad->ad_rsn_ie_len,
           (ad->ad_flags & 2) ? ", Instant Hotspot" : "",
           (ad->ad_flags & 4) ? ", Auto Instant Hotspot" : "",
           (ad->ad_rsn_ie[APPLE80211_MAX_RSN_IE_LEN] & 1) ? ", don't disassociate" : "",
@@ -899,9 +915,6 @@ setASSOCIATE(struct apple80211_assoc_data *ad)
     struct apple80211_rsn_ie_data rsn_ie_data;
     struct apple80211_authtype_data auth_type_data;
     struct ieee80211com *ic = fHalService->get80211Controller();
-
-    if (!ad)
-        return kIOReturnError;
     
     if (ic->ic_state < IEEE80211_S_SCAN)
         return kIOReturnSuccess;
