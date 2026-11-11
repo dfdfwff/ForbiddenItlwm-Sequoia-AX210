@@ -1,4 +1,4 @@
-<p align="center"><img src="docs/images/logo-512.png" alt="ForbiddenItlwm logo" width="200"></p>
+<p align="center"><img src="docs/images/icon-512.png" alt="ForbiddenItlwm logo" width="180"></p>
 
 <h1 align="center">ForbiddenItlwm</h1>
 
