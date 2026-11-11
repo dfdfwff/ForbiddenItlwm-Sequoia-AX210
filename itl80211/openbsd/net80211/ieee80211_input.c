@@ -176,7 +176,7 @@ ieee80211_input_hwdecrypt(struct ieee80211com *ic, struct ieee80211_node *ni,
 
    k = ieee80211_get_rxkey(ic, m, ni);
    if (k == NULL)
-       return NULL;
+       goto drop;
 
    wh = mtod(m, struct ieee80211_frame *);
    hdrlen = ieee80211_get_hdrlen(wh);
@@ -201,15 +201,15 @@ ieee80211_input_hwdecrypt(struct ieee80211com *ic, struct ieee80211_node *ni,
            break;
        }
            if (ieee80211_ccmp_get_pn(&pn, &prsc, m, k) != 0)
-               return NULL;
+               goto drop;
            if (rxi->rxi_flags & IEEE80211_RXI_HWDEC_SAME_PN) {
                if (pn < *prsc) {
                    ic->ic_stats.is_ccmp_replays++;
-                   return NULL;
+                   goto drop;
                }
            } else if (pn <= *prsc) {
                ic->ic_stats.is_ccmp_replays++;
-               return NULL;
+               goto drop;
            }
 
        /* Update last-seen packet number. */
@@ -231,16 +231,16 @@ ieee80211_input_hwdecrypt(struct ieee80211com *ic, struct ieee80211_node *ni,
            break;
        }
        if (ieee80211_tkip_get_tsc(&pn, &prsc, m, k) != 0)
-           return NULL;
+           goto drop;
 
        if (rxi->rxi_flags & IEEE80211_RXI_HWDEC_SAME_PN) {
            if (pn < *prsc) {
                ic->ic_stats.is_tkip_replays++;
-               return NULL;
+               goto drop;
                }
            } else if (pn <= *prsc) {
            ic->ic_stats.is_tkip_replays++;
-           return NULL;
+           goto drop;
        }
 
        /* Update last-seen packet number. */
@@ -258,6 +258,13 @@ ieee80211_input_hwdecrypt(struct ieee80211com *ic, struct ieee80211_node *ni,
    }
 
    return m;
+drop:
+   /*
+    * Every rejection consumes the frame: the caller only sees NULL, so a
+    * frame that wasn't freed here was leaked.
+    */
+   mbuf_freem(m);
+   return NULL;
 }
 
 /*
@@ -1323,8 +1330,8 @@ ieee80211_amsdu_decap(struct ieee80211com *ic, mbuf_t m,
         }
         
         /* "detach" our A-MSDU subframe from the others */
-        mbuf_split(m, len, MBUF_DONTWAIT, &n);
-        if (n == NULL) {
+        n = NULL;
+        if (mbuf_split(m, len, MBUF_DONTWAIT, &n) != 0 || n == NULL) {
             /* stop processing A-MSDU subframes */
             ic->ic_stats.is_rx_decap++;
             ml_purge(&subframes);
@@ -1337,6 +1344,8 @@ ieee80211_amsdu_decap(struct ieee80211com *ic, mbuf_t m,
             ic->ic_stats.is_rx_decap++;
             ml_purge(&subframes);
             mbuf_freem(m);
+            /* The split left the remaining subframes in n; they're ours too. */
+            mbuf_freem(n);
             return;
         }
         

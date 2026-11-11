@@ -505,9 +505,8 @@ bool ItlAWDLInterface::serviceTransmit()
             setProperty("ItlwmAWDLTxCompleteLastError", result, 32);
         }
     }
-    static unsigned lastPublished;
-    if (transmitCompleted != lastPublished) {
-        lastPublished = transmitCompleted;
+    if (transmitCompleted != transmitLastPublished) {
+        transmitLastPublished = transmitCompleted;
         setProperty("ItlwmAWDLTxAccepted", transmitAccepted, 32);
         setProperty("ItlwmAWDLTxCompleted", transmitCompleted, 32);
         setProperty("ItlwmAWDLTxDropped", transmitDropped, 32);
@@ -544,8 +543,42 @@ UInt32 ItlAWDLInterface::deferReceive(OSObject *owner, IOSkywalkRxSubmissionQueu
     return 0;
 }
 
+// Hands every packet still held for completion back to Skywalk, while the completion queue still
+// exists. Without this, packets accepted but not yet completed stayed owned by us when the queues
+// and pools were released.
+void ItlAWDLInterface::drainTransmitDone()
+{
+    if (!transmitDoneCount)
+        return;
+    if (addedQueues > 1 && packetQueues[1]) {
+        while (transmitDoneCount) {
+            const unsigned count = min(transmitDoneCount, 32U);
+            const IOReturn result = itlTxComplete(packetQueues[1], reinterpret_cast<void *const *>(transmitDone), count, 0);
+            if (result != kIOReturnSuccess) {
+                setProperty("ItlwmAWDLTxCompleteLastError", result, 32);
+                break;
+            }
+            transmitDoneCount -= count;
+            memmove(transmitDone, transmitDone + count, transmitDoneCount * sizeof(transmitDone[0]));
+            transmitCompleted += count;
+        }
+    }
+    // Whatever is left can't be completed any more; never hand it back later, to a new queue.
+    if (transmitDoneCount)
+        setProperty("ItlwmAWDLTxAbandonedAtStop", transmitDoneCount, 32);
+    transmitDoneCount = 0;
+}
+
 void ItlAWDLInterface::releaseNetworkResources()
 {
+    // In the queues' work loop, like serviceTransmit, so the two never run at once.
+    if (queueWorkLoop && transmitDoneCount)
+        queueWorkLoop->runAction([](OSObject *owner, void*, void*, void*, void*) -> IOReturn {
+            static_cast<ItlAWDLInterface *>(owner)->drainTransmitDone();
+            return kIOReturnSuccess;
+        }, this);
+    transmitQueued = 0;
+    transmitHead = 0;
     if (registrationAttempted) {
         registrationAttempted = false;
         deregisterEthernetInterface(0);
@@ -1106,6 +1139,8 @@ void AirportItlwm::teardownAWDLInterface()
 
 void AirportItlwm::releaseAll()
 {
+    // First, while the command gate the power calls use still exists.
+    unregistPM();
     teardownAWDLInterface();
 #ifdef AIRPORT_WCL
     if (fNetIf)
@@ -1163,7 +1198,6 @@ void AirportItlwm::releaseAll()
         _fWorkloop->release();
         _fWorkloop = NULL;
     }
-    unregistPM();
 }
 
 void AirportItlwm::
@@ -2428,11 +2462,17 @@ static IOPMPowerState powerStateArray[kPowerStateCount] =
 
 void AirportItlwm::unregistPM()
 {
+    // A call still pending would run after stop, against a command gate that is gone. Cancel it,
+    // or wait for one already running, and drop the reference setPowerState took for it.
     if (powerOffThreadCall) {
+        if (thread_call_cancel_wait(powerOffThreadCall))
+            release();
         thread_call_free(powerOffThreadCall);
         powerOffThreadCall = NULL;
     }
     if (powerOnThreadCall) {
+        if (thread_call_cancel_wait(powerOnThreadCall))
+            release();
         thread_call_free(powerOnThreadCall);
         powerOnThreadCall = NULL;
     }

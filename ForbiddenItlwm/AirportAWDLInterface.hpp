@@ -127,7 +127,8 @@ private:
     unsigned transmitHeldShort = 0;  // Short frames kept in order behind a paused or full aggregate queue.
     unsigned transmitPopped = 0, transmitHeldMark = 0;
     IOSkywalkPacket *transmitDone[transmitFrameCapacity] = {};
-    unsigned transmitDoneCount = 0, transmitCompleted = 0;
+    unsigned transmitDoneCount = 0, transmitCompleted = 0, transmitLastPublished = 0;
+    void drainTransmitDone();
     uint32_t transmitDepthBins[9] = {};
     uint16_t transmitSequence = 0;
     bool dataTransmitEnabled = false;
