@@ -10,7 +10,7 @@ It supports macOS Tahoe 26.7.x and, from 0.3.0, macOS Sequoia 15.8.x. **Each mac
 
 > **Status: public beta (0.4.0-beta1). Experimental.** The project tests on one machine with one card (Intel AX211) on macOS 26.7.1 (25G241): an HP Envy x360 13-bf with an iPhone 11. Users report AirDrop working on 26.7.2 and 26.7.3 too. **The Sequoia build hasn't been confirmed working on any hardware yet**, and testers are needed. See [where it was tested](docs/TESTED-HARDWARE.md). Expect rough edges. Test it from a USB stick first, never from your only working EFI.
 
-> **Update from 0.3.0-beta1.** 0.4.0-beta1 fixes security bugs in the driver, including one in the Wi-Fi password handshake code that came from the original itlwm. See the [changelog](CHANGELOG.md).
+> **Update from any earlier version.** 0.4.0-beta1 fixes security bugs in every earlier release, including one in the Wi-Fi password handshake code that came from the original itlwm. See the [changelog](CHANGELOG.md).
 
 ## ⚠️ Read this first
 
