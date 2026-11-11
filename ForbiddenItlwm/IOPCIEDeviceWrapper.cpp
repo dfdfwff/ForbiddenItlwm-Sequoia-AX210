@@ -57,47 +57,60 @@ IOWorkLoop *IOPCIEDeviceWrapper::getWorkLoop() const
     return _fWorkloop;
 }
 
+// The driver keeps its work loop, command gate and AWDL state in globals, so it can only run one
+// card. A second supported Intel card is left alone instead of overwriting the first one's state.
+static volatile UInt32 gCardClaimed = 0;
+
 IOService* IOPCIEDeviceWrapper::
 probe(IOService *provider, SInt32 *score)
 {
     XYLog("%s\n", __PRETTY_FUNCTION__);
-    bool isMatch = false;
     super::probe(provider, score);
-    UInt8 msiCap;
-    UInt8 msixCap;
     IOPCIDevice* device = OSDynamicCast(IOPCIDevice, provider);
     if (!device)
         return NULL;
-    if (ItlIwx::iwx_match(device)) {
-        isMatch = true;
-        fHalService = new ItlIwx;
-    }
-    if (!isMatch && ItlIwm::iwm_match(device)) {
-        isMatch = true;
-        fHalService = new ItlIwm;
-    }
-    if (!isMatch && ItlIwn::iwn_match(device)) {
-        isMatch = true;
-        fHalService = new ItlIwn;
-    }
-    if (isMatch) {
-        XYLog("%s Found\n", __FUNCTION__);
-        device->findPCICapability(PCI_CAP_ID_MSIX, &msixCap);
-        if (msixCap)
-            pciMsiXClearAndSet(device, msixCap, PCI_MSIX_FLAGS_ENABLE, 0);
-        device->findPCICapability(PCI_CAP_ID_MSI, &msiCap);
-        if (msiCap)
-            pciMsiSetEnable(device, msiCap, 1);
-        if (!msiCap && !msixCap) {
-            XYLog("%s No MSI cap\n", __FUNCTION__);
-            fHalService->release();
-            fHalService = NULL;
+    const int kind = ItlIwx::iwx_match(device) ? 1 : ItlIwm::iwm_match(device) ? 2 :
+        ItlIwn::iwn_match(device) ? 3 : 0;
+    if (!kind)
+        return NULL;
+    XYLog("%s Found\n", __FUNCTION__);
+    if (!claimedCard) {
+        if (!OSCompareAndSwap(0, 1, &gCardClaimed)) {
+            XYLog("%s: another Intel Wi-Fi card is already in use; this driver runs one card only\n", __FUNCTION__);
             return NULL;
         }
-        this->pciNub = device;
-        return this;
+        claimedCard = true;
     }
-    return NULL;
+    // probe can run more than once; keep the HAL already made for this device.
+    if (!fHalService)
+        fHalService = kind == 1 ? static_cast<ItlHalService *>(new ItlIwx) :
+            kind == 2 ? static_cast<ItlHalService *>(new ItlIwm) : static_cast<ItlHalService *>(new ItlIwn);
+    // findPCICapability returns the offset, 0 when the capability is absent.
+    const UInt8 msixCap = UInt8(device->findPCICapability(PCI_CAP_ID_MSIX));
+    const UInt8 msiCap = UInt8(device->findPCICapability(PCI_CAP_ID_MSI));
+    if (!fHalService || (!msiCap && !msixCap)) {
+        XYLog("%s %s\n", __FUNCTION__, fHalService ? "No MSI cap" : "no memory");
+        OSSafeReleaseNULL(fHalService);
+        claimedCard = false;
+        OSCompareAndSwap(1, 0, &gCardClaimed);
+        return NULL;
+    }
+    if (msixCap)
+        pciMsiXClearAndSet(device, msixCap, PCI_MSIX_FLAGS_ENABLE, 0);
+    if (msiCap)
+        pciMsiSetEnable(device, msiCap, 1);
+    this->pciNub = device;
+    return this;
+}
+
+void IOPCIEDeviceWrapper::free()
+{
+    OSSafeReleaseNULL(fHalService);
+    if (claimedCard) {
+        claimedCard = false;
+        OSCompareAndSwap(1, 0, &gCardClaimed);
+    }
+    super::free();
 }
 
 bool IOPCIEDeviceWrapper::

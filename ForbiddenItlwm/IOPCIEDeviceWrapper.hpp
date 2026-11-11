@@ -27,10 +27,14 @@ public:
     virtual IOReturn setPowerState(
         unsigned long powerStateOrdinal,
                                    IOService *   whatDevice ) override;
+    virtual void free() override;
     
 public:
     ItlHalService *fHalService;
     IOPCIDevice *pciNub;
+private:
+    // This wrapper holds the driver's one card (see probe).
+    bool claimedCard;
 };
 
 #endif /* IOPCIEDeviceWrapper_hpp */

@@ -1141,6 +1141,15 @@ void AirportItlwm::releaseAll()
 {
     // First, while the command gate the power calls use still exists.
     unregistPM();
+    // The watchdog uses the HAL and the gate, both released below.
+    if (watchdogTimer) {
+        watchdogTimer->cancelTimeout();
+        if (fWatchdogWorkLoop)
+            fWatchdogWorkLoop->removeEventSource(watchdogTimer);
+        watchdogTimer->release();
+        watchdogTimer = NULL;
+    }
+    OSSafeReleaseNULL(fWatchdogWorkLoop);
     teardownAWDLInterface();
 #ifdef AIRPORT_WCL
     if (fNetIf)
@@ -1187,14 +1196,6 @@ void AirportItlwm::releaseAll()
             scanSource->release();
             scanSource = NULL;
         }
-        if (fWatchdogWorkLoop && watchdogTimer) {
-            watchdogTimer->cancelTimeout();
-            fWatchdogWorkLoop->removeEventSource(watchdogTimer);
-            watchdogTimer->release();
-            watchdogTimer = NULL;
-            fWatchdogWorkLoop->release();
-            fWatchdogWorkLoop = NULL;
-        }
         _fWorkloop->release();
         _fWorkloop = NULL;
     }
@@ -1232,6 +1233,8 @@ eventHandler(struct ieee80211com *ic, int msgCode, void *data)
 
 void AirportItlwm::watchdogAction(IOTimerEventSource *timer)
 {
+    if (!fHalService)
+        return;
     struct _ifnet *ifp = &fHalService->get80211Controller()->ic_ac.ac_if;
     (*ifp->if_watchdog)(ifp);
 #ifdef AIRPORT_WCL
@@ -1293,7 +1296,13 @@ IOService* AirportItlwm::probe(IOService *provider, SInt32 *score)
         return NULL;
     }
     pciNub = wrapper->pciNub;
-    fHalService = wrapper->fHalService;
+    // The wrapper keeps its own reference; this one is ours, released in releaseAll or free.
+    if (fHalService != wrapper->fHalService) {
+        OSSafeReleaseNULL(fHalService);
+        fHalService = wrapper->fHalService;
+        if (fHalService)
+            fHalService->retain();
+    }
     if (!pciNub || !fHalService) {
         XYLog("%s Not a valid IOPCIEDeviceWrapper instance\n", __FUNCTION__);
         return NULL;
@@ -1527,7 +1536,12 @@ bool AirportItlwm::start(IOService *provider)
         releaseAll();
         return false;
     }
-    fWatchdogWorkLoop = IOWorkLoop::workLoop();
+    // The watchdog runs on the main work loop, so its action holds the same gate as the interrupt
+    // and request paths. On a separate loop it touched driver and 802.11 state (sc_tx_timer, state
+    // changes, link quality) while those ran.
+    fWatchdogWorkLoop = _fWorkloop;
+    if (fWatchdogWorkLoop)
+        fWatchdogWorkLoop->retain();
     if (fWatchdogWorkLoop == NULL) {
         XYLog("init watchdog workloop fail\n");
         fHalService->detach(pciNub);
