@@ -119,7 +119,7 @@ These are plans, not promises. There are no dates, and the order isn't fixed.
 - **Faster connects:** cutting the 3 to 10 s a cold iPhone → Mac transfer spends finding the Mac.
 - **macOS Sonoma 14 and Ventura 13:** separate kexts for each, like Tahoe and Sequoia. Each needs its own study of that version's Wi-Fi stack first, so support isn't certain.
 - **Fewer boot flags:** sensible defaults, so the beta doesn't need its long list of flags.
-- **BTLEAdvFixup that survives macOS updates:** patterns that tolerate small changes in `bluetoothd`, instead of exact bytes from one build.
+- **A unified Bluetooth kext that survives macOS updates:** a Bluetooth kext made for ForbiddenItlwm, replacing BTLEAdvFixup, IntelBluetoothFirmware and BlueToolFixup, so all wireless connectivity needs just two kexts besides Lilu. Its patches would keep working across small macOS updates.
 - **AirPlay to the hackintosh, Sidecar and Universal Control:** these also use Apple's peer-to-peer links. None has been tried yet.
 
 ## Disclaimer
