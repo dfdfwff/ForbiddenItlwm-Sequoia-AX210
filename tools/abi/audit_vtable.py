@@ -1,6 +1,8 @@
-"""Verify every compiled AWDL subclass virtual slot against the native table of macOS 26.7.1 (25G241).
+"""Verify every compiled AWDL subclass virtual slot against the native table of its macOS version.
 
-Usage: python3 tools/abi/audit_vtable.py --lifecycle-overrides   (after tools/build.py --out build)
+Usage: python3 tools/abi/audit_vtable.py [--target tahoe|sequoia] --build <dir> --lifecycle-overrides
+  tahoe:   native-vtables.json, read from the running 26.7.1 (25G241) kernel collection
+  sequoia: native-vtables-24H241.json, from the 15.8.3 Kernel Debug Kit (15.8's table is identical)
 Slots 0x90 (free) and 0x5c8 (stop) differ by design; --lifecycle-overrides accepts them."""
 import argparse,json,struct
 from pathlib import Path
@@ -9,6 +11,7 @@ parser=argparse.ArgumentParser()
 parser.add_argument('--build',type=Path,default=root.parents[1]/'build')
 parser.add_argument('--out',type=Path,default=root.parents[1]/'build')
 parser.add_argument('--lifecycle-overrides',action='store_true')
+parser.add_argument('--target',choices=('tahoe','sequoia'),default='tahoe')
 args=parser.parse_args()
 object_path=next((args.build/'obj').glob('AirportItlwmV2-*.o'))
 raw=object_path.read_bytes()
@@ -41,7 +44,7 @@ for i in range(section['nreloc']):
         candidates=[s['name'] for s in symbols if s['section'] and s['value']==value]
         assert candidates,(hex(addr),hex(value))
         relocations[addr]=candidates[0]
-tables=json.loads((root/'native-vtables.json').read_text())
+tables=json.loads((root/{'tahoe':'native-vtables.json','sequoia':'native-vtables-24H241.json'}[args.target]).read_text())
 native=tables['IO80211AWDLProtocol']['entries'][:]
 while native and int(native[-1]['packed'],16)==0:native.pop()
 concrete=tables['AppleBCMWLANProximityInterface']['entries']
@@ -65,7 +68,7 @@ controller=next(x for x in symbols if x['name']=='__ZTV12AirportItlwm')
 assert controller['section']==symbol['section']
 factory=relocations[controller['value']-section['addr']+16+0xdd8]
 assert factory=='__ZN12AirportItlwm22createVirtualInterfaceEP10ether_addrj',factory
-report=dict(object=str(object_path),controller_factory_slot='0xdd8',controller_factory=factory,slots=len(results),matches=len(results)-len(failures),failures=failures,entries=results)
+report=dict(target=args.target,object=str(object_path),controller_factory_slot='0xdd8',controller_factory=factory,slots=len(results),matches=len(results)-len(failures),failures=failures,entries=results)
 (args.out/'compiled-vtable-audit.json').write_text(json.dumps(report,indent=2)+'\n')
-print(json.dumps({k:report[k] for k in ('slots','matches','failures')},indent=2))
+print(json.dumps({k:report[k] for k in ('target','slots','matches','failures')},indent=2))
 assert not failures

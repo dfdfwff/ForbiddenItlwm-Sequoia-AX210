@@ -1,7 +1,7 @@
 // Experimental native AWDL interface. No AWDL radio data path is implemented.
 #pragma once
-#include <Airport/macOS26/IO80211AWDLProtocol.h>
-#include <Airport/macOS26/IOSkywalkQueueFactories.h>
+#include <Airport/IO80211AWDLProtocol.h>
+#include <Airport/IOSkywalkQueueFactories.h>
 #include "AWDLRequestedValue.hpp"
 #include "AWDLInactiveProtocol.hpp"
 #include <IOKit/IOLocks.h>
@@ -35,6 +35,7 @@ public:
     IOReturn receiveManagementFrame(IO80211Controller*, const uint8_t*, size_t, uint32_t, int32_t);
     void stop(IOService*) override;
     void free() override;
+    // Pure in IO80211VirtualInterface on Tahoe, and in IO80211SkywalkInterface on Sequoia.
     IOReturn setMacAddress(ether_addr&) override { return unsupported("setMacAddress"); }
     IOReturn getSSID(apple80211_ssid_data*) override { return unsupported("getSSID"); }
     IOReturn getCHANNEL(apple80211_channel_data*) override { return unsupported("getCHANNEL"); }

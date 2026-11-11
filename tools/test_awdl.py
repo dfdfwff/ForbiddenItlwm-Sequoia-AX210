@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run host AWDL protocol checks under memory/undefined-behavior sanitizers."""
 from pathlib import Path
+import os
 import subprocess
 import tempfile
 
@@ -15,10 +16,20 @@ with tempfile.TemporaryDirectory(prefix="forbiddenitlwm-tests-") as directory:
             "-o", str(output),
         ], check=True)
         subprocess.run([str(output)], check=True)
+    # The build check again, as the Sequoia kext compiles it.
+    output = Path(directory) / "awdl_build_guard_sequoia"
+    subprocess.run(["xcrun", "clang++", "-std=c++14", "-D__MAC_15_2=150200", "-D__IO80211_TARGET=150200",
+                    "-I" + str(root / "include"), "-fsanitize=address,undefined",
+                    str(root / "tests" / "awdl_build_guard.cpp"), "-o", str(output)], check=True)
+    subprocess.run([str(output)], check=True)
 subprocess.run(["python3", str(root / "tests/monitor_tx_ownership.py")], check=True)
 subprocess.run(["python3", str(root / "tests/monitor_channel.py")], check=True)
 subprocess.run(["python3", str(root / "tests/monitor_probe.py")], check=True)
 subprocess.run(["python3", str(root / "tests/btleadv_patterns.py")], check=True)
+# The Sequoia table needs a 15.8.3 bluetoothd, which isn't on a Tahoe Mac. Point this at one to check it.
+if os.environ.get("FORBIDDEN_SEQUOIA_BLUETOOTHD"):
+    subprocess.run(["python3", str(root / "tests/btleadv_patterns.py"), "--target", "sequoia",
+                    "--binary", os.environ["FORBIDDEN_SEQUOIA_BLUETOOTHD"]], check=True)
 subprocess.run(["python3", str(root / "tests/awdl_snapshot.py")], check=True)
 subprocess.run(["python3", str(root / "tests/awdl_bridge.py")], check=True)
 subprocess.run(["python3", str(root / "tests/awdl_pool_lease.py")], check=True)

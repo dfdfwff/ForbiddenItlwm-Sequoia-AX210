@@ -591,9 +591,11 @@ int32_t linkQualityForRSSI(int32_t rssi)
 // rates en0's link quality "off" (-2) and apsd won't use Wi-Fi, which stops push and iMessage.
 // This posts an RSSI-only update every 2 s while the port is up. handleLqmUpdate stores the RSSI
 // first and, with the snapshot and counter flags clear, stops there.
+// On Sequoia only en0's link quality metric is reported: IO80211Family 24H241 has the same empty
+// setLQM stub and no other caller of reportLinkQuality, so the same "off" rating is expected. The
+// RSSI-only LqmUpdate below uses Tahoe's WCL structure layout and stays Tahoe-only.
 void AirportItlwmSkywalkInterface::wclPostLinkQuality()
 {
-#if __IO80211_TARGET != __MAC_15_2
     if (wclStopping || !portAuthorized || !instance)
         return;
     if (++wclLqmTicks % 2)
@@ -609,6 +611,7 @@ void AirportItlwmSkywalkInterface::wclPostLinkQuality()
         instance->setProperty("ItlwmWCLLinkQuality", uint64_t(uint32_t(quality)), 32);
         instance->setProperty("ItlwmWCLLinkQualityResult", uint64_t(uint32_t(result)), 32);
     }
+#if __IO80211_TARGET != __MAC_15_2
     AirportWCL::LqmBeaconUpdate update = {};
     update.rssiValid = 1;
     update.rssi = rssi.aggregate_rssi;

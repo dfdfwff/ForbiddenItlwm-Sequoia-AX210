@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Build BTLEAdvFixup.kext, the Lilu plugin that lets macOS start Bluetooth LE advertising on Intel controllers."""
+"""Build BTLEAdvFixup.kext, the Lilu plugin that lets macOS start Bluetooth LE advertising on Intel controllers.
+
+One build per macOS version, because the bluetoothd patterns are per build:
+--target tahoe (macOS 26.7.1, default) or --target sequoia (macOS 15.8.3)."""
 import argparse,hashlib,plistlib,re,subprocess
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
@@ -7,9 +10,10 @@ NAME='BTLEAdvFixup';VERSION='0.8.0';IDENT='org.forbiddenitlwm.'+NAME
 def run(c): subprocess.run([str(x) for x in c],check=True)
 def main():
     p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True)
-    p.add_argument('--tree',type=Path,required=True,help='A folder holding MacKernelSDK and a DEBUG Lilu.kext (its Contents/Resources carries the Lilu SDK headers)');a=p.parse_args()
+    p.add_argument('--tree',type=Path,required=True,help='A folder holding MacKernelSDK and a DEBUG Lilu.kext (its Contents/Resources carries the Lilu SDK headers)')
+    p.add_argument('--target',choices=('tahoe','sequoia'),default='tahoe');a=p.parse_args()
     sdk=a.tree/'MacKernelSDK';lilu=a.tree/'Lilu.kext/Contents/Resources'
-    base=FLAGS(sdk,lilu)
+    base=FLAGS(sdk,lilu)+(['-DBTLEADV_SEQUOIA'] if a.target=='sequoia' else [])
     bundle=a.out/(NAME+'.kext')/'Contents';(bundle/'MacOS').mkdir(parents=True,exist_ok=True);objs=[]
     for s in (ROOT/'BTLEAdvFixup/kern_start.cpp',lilu/'Library/plugin_start.cpp'):
         o=a.out/(s.stem+'.o');run(base+['-DPRODUCT_NAME='+NAME,'-DMODULE_VERSION='+VERSION,'-c',s,'-o',o]);objs.append(o)
@@ -25,7 +29,7 @@ def main():
     undefined=subprocess.check_output(['xcrun','nm','-u',str(exe)],text=True)
     assert 'kern_start' not in undefined and 'kern_stop' not in undefined,'unresolved local lifecycle symbol'
     assert NAME+'_kern_start' in syms
-    print('built',exe,hashlib.sha256(exe.read_bytes()).hexdigest())
+    print('built',a.target,exe,hashlib.sha256(exe.read_bytes()).hexdigest())
 def FLAGS(sdk,lilu):
     # The usual kernel C++ ABI choices for a Lilu plugin.
     return ['xcrun','clang++','-arch','x86_64','-std=c++17','-O2','-mkernel' if False else '-g','-fapple-kext','-fno-exceptions','-fno-rtti','-fno-stack-protector','-fno-builtin','-fno-asynchronous-unwind-tables','-mno-red-zone','-nostdinc','-DKERNEL','-DKERNEL_PRIVATE','-D__APPLE__','-D__MACH__','-I'+str(sdk/'Headers'),'-I'+str(lilu),'-I'+str(ROOT/'BTLEAdvFixup'),'-mmacosx-version-min=10.6','-DAPPLE_KEXT_ASSERTIONS=1','-DDRIVER_PRIVATE','-DAPPLE','-DNeXT','-fno-common','-fasm-blocks','-mmmx','-msse','-msse2','-msse3','-mssse3','-mfpmath=sse','-ftree-vectorize','-fno-non-call-exceptions','-Wall','-Wextra','-Wno-unused-parameter','-Wno-deprecated-declarations','-Wno-vla','-Wno-ossharedptr-misuse','-fdebug-compilation-dir=.','-ffile-prefix-map='+str(ROOT)+'=/ForbiddenItlwm','-ffile-prefix-map='+str(sdk)+'=/MacKernelSDK','-ffile-prefix-map='+str(lilu)+'=/Lilu']

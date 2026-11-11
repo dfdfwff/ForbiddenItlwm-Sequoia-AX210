@@ -1,19 +1,28 @@
 #!/usr/bin/env python3
-"""Check the patch table against this Mac's real bluetoothd.
+"""Check a BTLEAdvFixup patch table against a real bluetoothd.
+
+Default: the Tahoe table against this Mac's /usr/sbin/bluetoothd.
+  --target sequoia --binary <path>   the Sequoia table against a 15.8.3 bluetoothd
 
 This shows each pattern matches exactly once and changes only what it should. It
 doesn't show that the Bluetooth controller accepts extended advertising.
 """
-import re
+import argparse,re
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
-source=(root/'BTLEAdvFixup/BTLEAdvPatches.hpp').read_text()
+parser=argparse.ArgumentParser()
+parser.add_argument('--target',choices=('tahoe','sequoia'),default='tahoe')
+parser.add_argument('--binary',type=Path,default=Path('/usr/sbin/bluetoothd'))
+args=parser.parse_args()
+whole=(root/'BTLEAdvFixup/BTLEAdvPatches.hpp').read_text()
+tahoe,sequoia=whole.split('#ifndef BTLEADV_SEQUOIA',1)[1].split('\n#else\n',1)
+source={'tahoe':tahoe,'sequoia':sequoia}[args.target]
 def table(name):
     body=re.search(r'%s\[\] = \{(.*?)\};'%name,source,re.S).group(1)
     return bytes(int(x,16) for x in re.findall(r'0x[0-9a-f]{2}',body))
 # Read the x86_64 slice directly. lipo writing from a mapped copy of this file failed
 # once with "Bad address" on a cold page cache, while a plain read was fine.
-raw=Path('/usr/sbin/bluetoothd').read_bytes()
+raw=args.binary.read_bytes()
 assert raw[:4]==bytes.fromhex('cafebabe')
 binary=None
 for i in range(int.from_bytes(raw[4:8],'big')):
@@ -28,7 +37,8 @@ for name in ('advertising','scanning','randomAddress','extendedConnection'):
     if binary.count(find)==0 and binary.count(replace)==1:
         binary=binary.replace(replace,find)
         print('%s: this read returned the patched page, checked against the original bytes'%name)
-checks=[('advertising',bytes.fromhex('ff9118090000')),('scanning',bytes.fromhex('ff91a8090000'))]
+queries={'tahoe':('ff9118090000','ff91a8090000'),'sequoia':('ff91c0070000','ff9148080000')}[args.target]
+checks=[('advertising',bytes.fromhex(queries[0])),('scanning',bytes.fromhex(queries[1]))]
 for name,query in checks:
     find,replace=table(name+'Find'),table(name+'Replace')
     assert len(find)==len(replace)
@@ -56,4 +66,4 @@ offset=binary.index(find)
 assert offset//4096==(offset+len(find)-1)//4096,'pattern crosses a page'
 assert len(find)==len(replace) and find[7:]==replace[7:] and binary.count(replace)==0
 assert find[:3]==bytes.fromhex('0fb6bd') and replace[:7]==bytes.fromhex('bf010000009090')
-print('BTLEAdvFixup patterns: passed against this bluetoothd (no controller test)')
+print('BTLEAdvFixup %s patterns: passed against %s (no controller test)'%(args.target,args.binary))

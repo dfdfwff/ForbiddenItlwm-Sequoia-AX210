@@ -9,8 +9,10 @@
 # Usage: bash check_compat.sh
 #
 # The verdict is an estimate. Only the AX211 (firmware so-a0-gf-a0-68) on macOS 26.7.1 (25G241) has
-# been tested on hardware; 26.7.2 (25G332) and 26.7.3 (25G342) were verified offline. Everything else
-# is predicted from the firmware's capabilities and the driver's code.
+# been tested on hardware; 26.7.2 (25G332) and 26.7.3 (25G342) were verified offline. On Sequoia,
+# 15.8 (24H23) and 15.8.3 (24H241) were verified offline for the separate Sequoia kexts, and other
+# 15.8.x builds are expected to work. Everything else is predicted from the firmware's capabilities
+# and the driver's code.
 
 set -u
 export LC_ALL=C
@@ -58,12 +60,26 @@ if [ "$OS_BUILD" = "$TESTED_BUILD" ]; then
 elif [ -n "$OS_BUILD" ] && echo " $OFFLINE_BUILDS " | grep -q " $OS_BUILD "; then
     pass "macOS $OS_VER ($OS_BUILD): supported. Its Wi-Fi stack was checked against $TESTED_BUILD and is the same where"
     pass "the driver depends on it. See the bluetoothd pattern check below for the Bluetooth side. Please report your result."
+elif [ "${OS_MAJOR:-0}" = "15" ]; then
+    # The Sequoia kexts (ForbiddenItlwm and BTLEAdvFixup for Sequoia), not the Tahoe ones.
+    SEQ_VERIFIED="24H23 24H241"
+    OS_MINOR=$(echo "$OS_VER" | cut -d. -f2)
+    if echo " $SEQ_VERIFIED " | grep -q " $OS_BUILD "; then
+        pass "macOS $OS_VER ($OS_BUILD): supported by the Sequoia kexts. Their Wi-Fi stack was checked offline; nobody has"
+        pass "tested Sequoia on hardware yet, so please report your result. Use the Sequoia ForbiddenItlwm and BTLEAdvFixup."
+    elif [ "${OS_MINOR:-0}" = "8" ]; then
+        warn "macOS $OS_VER ($OS_BUILD): expected to work with the Sequoia kexts (same 15.8 kernel family), but this build"
+        warn "wasn't checked offline. The driver still checks Apple's Wi-Fi tables at boot. Please report your result."
+    else
+        fail "On Sequoia, AirDrop needs macOS 15.8 or newer (this is $OS_VER). Normal Wi-Fi may still work with the Sequoia kext."
+        BLOCKERS=$((BLOCKERS + 1))
+    fi
 elif [ "${OS_MAJOR:-0}" = "26" ]; then
     warn "macOS 26 but build $OS_BUILD isn't verified yet. The driver keeps AirDrop off on it (normal Wi-Fi still works),"
     warn "unless you add -itlawdlanybuild, which risks a kernel panic. Please report this build so it can be checked."
     BLOCKERS=$((BLOCKERS + 1))
 else
-    fail "The AirDrop code is only built for macOS 26 (Tahoe), tested on $TESTED_VERSION ($TESTED_BUILD)."
+    fail "AirDrop is only built for macOS 26 (Tahoe) and macOS 15.8 (Sequoia). Tested on $TESTED_VERSION ($TESTED_BUILD)."
     BLOCKERS=$((BLOCKERS + 1))
 fi
 
@@ -232,18 +248,28 @@ LILU=$(kext_version as.vit9696.Lilu)
 if [ -n "$BTLEADV" ]; then pass "BTLEAdvFixup $BTLEADV is loaded."; else info "BTLEAdvFixup isn't loaded. It's part of the AirDrop package."; fi
 [ -n "$IBTPATCH" ] && [ -n "$BTLEADV" ] && warn "IntelBTPatcher and BTLEAdvFixup are both loaded. The tested setup disables IntelBTPatcher, as both hook the same USB requests."
 # BTLEAdvFixup patches four places in bluetoothd. Its patterns are exact bytes from macOS 26.7.1
-# (25G241), so they only match a bluetoothd with the same build. This reads /usr/sbin/bluetoothd
+# (25G241) for the Tahoe build and from 15.8.3 (24H241) for the Sequoia build, so they only match a
+# bluetoothd with the same build. This reads /usr/sbin/bluetoothd
 # (read-only) and counts each site in its original form and, when BTLEAdvFixup is already running and
 # the page cache returns the patched page, in its patched form. Generated from
 # BTLEAdvFixup/BTLEAdvPatches.hpp; keep the two in step.
 BTD=/usr/sbin/bluetoothd
 if [ -r "$BTD" ] && command -v perl >/dev/null 2>&1; then
-    BT_PATTERNS=$(perl -0777 -ne '
+    BT_SET=tahoe; [ "${OS_MAJOR:-0}" = "15" ] && BT_SET=sequoia
+    BT_PATTERNS=$(BT_SET=$BT_SET perl -0777 -ne '
         sub n { my $hex = shift; my $re = join "", map { "\\x$_" } ($hex =~ /(..)/g); my $c = () = /$re/sg; return $c; }
-        my @advertising = (n("84c00f8438010000e80878f8ff488b084889c7ff91180900004189c6"), n("84c0909090909090e80878f8ff488b084889c7b801000000904189c6"));
-        my @scanning = (n("84c00f8438010000e8b27af8ff488b084889c7ff91a80900004189c6"), n("84c0909090909090e8b27af8ff488b084889c7b801000000904189c6"));
-        my @randomAddress = (n("83b83403000003772a31ffe83e6bceff"), n("83b83403000003772a90909090909090"));
-        my @extendedConnection = (n("0fb6bd5effffffe8cb9dcfff"), n("bf010000009090e8cb9dcfff"));
+        my (@advertising, @scanning, @randomAddress, @extendedConnection);
+        if ($ENV{BT_SET} eq "sequoia") {
+            @advertising = (n("84c00f8438010000e8104cf9ff488b084889c7ff91c00700004189c6"), n("84c0909090909090e8104cf9ff488b084889c7b801000000904189c6"));
+            @scanning = (n("84c00f8438010000e8ba4ef9ff488b084889c7ff91480800004189c6"), n("84c0909090909090e8ba4ef9ff488b084889c7b801000000904189c6"));
+            @randomAddress = (n("83b8f8020000037723" . "31ffe859abd2ff"), n("83b8f802000003772390909090909090"));
+            @extendedConnection = (n("0fb6bd5effffffe800cfd3ff"), n("bf010000009090e800cfd3ff"));
+        } else {
+            @advertising = (n("84c00f8438010000e80878f8ff488b084889c7ff91180900004189c6"), n("84c0909090909090e80878f8ff488b084889c7b801000000904189c6"));
+            @scanning = (n("84c00f8438010000e8b27af8ff488b084889c7ff91a80900004189c6"), n("84c0909090909090e8b27af8ff488b084889c7b801000000904189c6"));
+            @randomAddress = (n("83b83403000003772a31ffe83e6bceff"), n("83b83403000003772a90909090909090"));
+            @extendedConnection = (n("0fb6bd5effffffe8cb9dcfff"), n("bf010000009090e8cb9dcfff"));
+        }
         for my $p (["advertising", @advertising], ["scanning", @scanning], ["randomAddress", @randomAddress], ["extendedConnection", @extendedConnection]) {
             my ($name, $orig, $patched) = @$p;
             printf "%s=%d(%s) ", $name, $orig + $patched, $patched ? "patched" : "original";

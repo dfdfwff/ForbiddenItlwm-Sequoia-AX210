@@ -5569,7 +5569,7 @@ out:
 // frame with BSSID 00:25:00:ff:94:73: category 0x7f, OUI 00:17:f2, type 8,
 // version, subtype (0 PSF, 3 MIF), reserved, then phy_tx_time and
 // target_tx_time, little endian, in microseconds of the sender's clock.
-#if defined(AIRPORT_WCL) && __IO80211_TARGET == __MAC_26_0
+#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
 extern bool itlAWDLBuildAllowed();
 extern IOReturn itlAWDLReceiveAction(IOEthernetController*, mbuf_t, size_t, uint32_t, int32_t);
 extern void itlAWDLObserveData(IOEthernetController*, const uint8_t*, size_t);
@@ -6871,7 +6871,7 @@ awdlRxObserve(struct iwx_softc *sc, mbuf_t m, int chanidx, int rssi, uint32_t ti
                 memcpy(awdlLearnedPeer, data.source, sizeof(awdlLearnedPeer));
                 memcpy(awdlLearnedPeerIP, data.ip.bytes + 8, sizeof(awdlLearnedPeerIP));
             }
-#if defined(AIRPORT_WCL) && __IO80211_TARGET == __MAC_26_0
+#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
             itlAWDLObserveData(container_of(sc, ItlIwx, com)->getController(), f, capture);
 #endif
         }
@@ -6899,7 +6899,7 @@ awdlRxObserve(struct iwx_softc *sc, mbuf_t m, int chanidx, int rssi, uint32_t ti
                     f[1], f[22] & 0x0f, len > 33 ? f[29] : 0xff, len > 34 ? f[30] : 0xff);
         return;
     }
-#if defined(AIRPORT_WCL) && __IO80211_TARGET == __MAC_26_0
+#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
     // The borrowed Intel mbuf stays in the normal RX path. The receiver makes
     // an owned copy into an Apple pool buffer before invoking the peer engine.
     // rxi_rssi is dBm normalized by IWX_MIN_DBM; the native stack expects dBm.
@@ -7319,7 +7319,7 @@ awdlCoexTxTask(void *arg)
 void ItlIwx::
 awdlCoexDataPump(struct iwx_softc *sc, unsigned budget)
 {
-#if defined(AIRPORT_WCL) && __IO80211_TARGET == __MAC_26_0
+#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
     struct ieee80211com *ic = &sc->sc_ic;
     const int gen = sc->sc_generation;
     struct iwx_node *in = (struct iwx_node *)ic->ic_bss;
@@ -7748,7 +7748,7 @@ static bool awdlVht80TwoStream(uint32_t rate)
 void ItlIwx::
 awdlCoexBaHandle(struct iwx_softc *sc)
 {
-#if defined(AIRPORT_WCL) && __IO80211_TARGET == __MAC_26_0
+#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
     const int gen = sc->sc_generation;
     if (awdlCoexBaGen != gen) {
         awdlCoexBaGen = gen;
@@ -8704,7 +8704,7 @@ awdlRxTask(void *arg)
             that->awdlMonitorPending != nullptr, that->awdlMonitorTxAttempted) :
         ItlAWDL::probeDelayUS(awdlFastProbe,
             that->awdlMonitorSubmitted, that->awdlMonitorPending != nullptr, that->awdlMonitorTxAttempted);
-#if defined(AIRPORT_WCL) && __IO80211_TARGET == __MAC_26_0
+#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
     if (awdlDataTx)
         // Output arrives without notice, so never sleep for long while it's on.
         nextDelay = MIN(nextDelay, (itlAWDLServiceTransmit(that->getController()) ||
@@ -8761,7 +8761,7 @@ iwx_rx_frame(struct iwx_softc *sc, mbuf_t m, int chanidx,
         if ((awdlFrame || baToUs) && cf[0] == 0xd0) {
             ++awdlCoexAwdlAction;
             ++(unsigned(chanidx) == awdlCoexChannel ? awdlCoexActionOnChannel : awdlCoexActionOffChannel);
-#if defined(AIRPORT_WCL) && __IO80211_TARGET == __MAC_26_0
+#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
             // The listener's frames come without the FCS; the hand-off expects four bytes after the
             // frame, as from monitor mode, so a copy gets them.
             const size_t coexLen = mbuf_len(m);
@@ -8936,7 +8936,7 @@ iwx_rx_frame(struct iwx_softc *sc, mbuf_t m, int chanidx,
         }
         else if (awdlFrame && (cf[0] & 0x0c) == 0x08) {
             ++awdlCoexAwdlData;
-#if defined(AIRPORT_WCL) && __IO80211_TARGET == __MAC_26_0
+#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
             // AWDL data heard by the listener, without the FCS. awdl0's hand-off expects the monitor-mode
             // layout, four bytes after the frame, so it gets a copy with them zeroed.
             const size_t dataLen = mbuf_len(m);
@@ -10042,7 +10042,7 @@ awdlAfterCompletion(struct iwx_softc *sc)
     if (!awdlKickTransmit)
         return;
     awdlKickTransmit = false;
-#if defined(AIRPORT_WCL) && __IO80211_TARGET == __MAC_26_0
+#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
     // A busy link would otherwise never let the timer hand finished packets back.
     (void)itlAWDLServiceTransmit(getController());
 #endif
@@ -11210,7 +11210,7 @@ void ItlIwx::iwx_awdl_transport_probe(struct iwx_softc *sc)
         !ic->ic_bss->ni_rates.rs_nrates || !isset(ic->ic_chan_active, awdlFixedChannel) ||
         (channel->ic_flags & (IEEE80211_CHAN_PASSIVE | IEEE80211_CHAN_DFS | IEEE80211_CHAN_NOADHOC)))
         return;
-#if defined(AIRPORT_WCL) && __IO80211_TARGET == __MAC_26_0
+#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
     const uint64_t syncNowUS = awdlUptimeUS();
     if (awdlBaResponseLength && !awdlBurst.count && !awdlResend.held) {
         mbuf_t answer = nullptr;
@@ -11468,7 +11468,7 @@ void ItlIwx::iwx_awdl_transport_probe(struct iwx_softc *sc)
 #endif
     if (awdlPeerTrain && !awdlPeerAudible())
         return;
-#if defined(AIRPORT_WCL) && __IO80211_TARGET == __MAC_26_0
+#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
     // The timer runs every millisecond around a transfer, so sync frames need their own pace.
     if (awdlDataTx && awdlPeerTrain) {
         // Only while no data has moved for a second: these frames take the single-frame path, and
@@ -11488,7 +11488,7 @@ void ItlIwx::iwx_awdl_transport_probe(struct iwx_softc *sc)
     uint64_t uptime, ns;
     clock_get_uptime(&uptime);
     absolutetime_to_nanoseconds(uptime, &ns);
-#if defined(AIRPORT_WCL) && __IO80211_TARGET == __MAC_26_0
+#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
     if (awdlSyncProbe) {
         mbuf_t syncPacket = nullptr;
         const auto result = itlAWDLBuildSyncProbe(getController(), &syncPacket, ns / 1000);
@@ -15658,7 +15658,7 @@ awdlCoexTxTeardown(struct iwx_softc *sc)
 void ItlIwx::
 awdlCoexTxSend(struct iwx_softc *sc)
 {
-#if defined(AIRPORT_WCL) && __IO80211_TARGET == __MAC_26_0
+#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
     struct ieee80211com *ic = &sc->sc_ic;
     struct iwx_node *in = (struct iwx_node *)ic->ic_bss;
     if (!in || !in->in_phyctxt || !in->in_phyctxt->channel)

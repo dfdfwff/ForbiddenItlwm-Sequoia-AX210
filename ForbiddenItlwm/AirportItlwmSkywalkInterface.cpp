@@ -7,7 +7,7 @@
 //
 #include "AirportItlwmV2.hpp"
 #include "AirportItlwmSkywalkInterface.hpp"
-#if defined(AIRPORT_WCL) && __IO80211_TARGET == __MAC_26_0
+#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
 #include "AirportAWDLInterface.hpp"
 #endif
 #include <sys/CTimeout.hpp>
@@ -332,7 +332,7 @@ setVIRTUAL_IF_CREATE(apple80211_virt_if_create_data *data)
     memcpy(address.octet, data->mac, sizeof(address.octet));
     const bool attached = instance->attachVirtualInterface(&instance->fAWDLInterface, &address, data->role, false);
     IOReturn result = attached ? kIOReturnSuccess : kIOReturnError;
-#if defined(AIRPORT_WCL) && __IO80211_TARGET == __MAC_26_0
+#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
     if (attached) {
         result = static_cast<ItlAWDLInterface *>(instance->fAWDLInterface)->initializeNetwork(
             instance, instance->getWorkQueue(), address);

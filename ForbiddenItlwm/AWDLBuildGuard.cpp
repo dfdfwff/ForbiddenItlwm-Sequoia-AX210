@@ -6,7 +6,8 @@
 //  1. The running kernel is one whose IO80211Family and IOSkywalkFamily were verified (AWDLBuildGuard.hpp).
 //  2. Apple's IO80211AWDLProtocol virtual table, which ItlAWDLInterface subclasses slot for slot,
 //     still has the expected functions at spread-out anchor slots, its own pure methods where
-//     expected, and ends after 568 slots. This catches a changed table on any build.
+//     expected, and ends where expected (568 slots on Tahoe, 563 on Sequoia). This catches a changed
+//     table on any build.
 //  -itlawdlanybuild skips check 1 (never check 2). When AWDL may not start, the driver behaves like
 //  plain AirportItlwm: normal Wi-Fi works and nothing AWDL-related is created or sent.
 //
@@ -21,13 +22,18 @@ void itlAnchorAWDLProtocolD1() __asm__("__ZN19IO80211AWDLProtocolD1Ev");
 void itlAnchorWakeFlags() __asm__("__ZN25IOSkywalkNetworkInterface21getSupportedWakeFlagsEPj");
 void itlAnchorInterfaceCCA() __asm__("__ZN23IO80211SkywalkInterface15setInterfaceCCAE18apple80211_channeli");
 void itlAnchorStatsDump() __asm__("__ZN23IO80211SkywalkInterface9statsDumpEv");
+#ifdef ITL_AWDL_GUARD_SEQUOIA
+void itlAnchorVirtualInit() __asm__("__ZN23IO80211VirtualInterface4initEP17IO80211ControllerP10ether_addrjPKc");
+#else
 void itlAnchorSyncDPSStats() __asm__("__ZN23IO80211SkywalkInterface12syncDPSStatsEP26apple82011_postMessage_dps");
+#endif
 void itlAnchorReserved15() __asm__("__ZN23IO80211VirtualInterface34_RESERVEDIO80211VirtualInterface15Ev");
 void itlAnchorPureVirtual() __asm__("___cxa_pure_virtual");
 }
 
 namespace {
-// Slots counted from the address point (the vtable symbol plus two words), as in the 25G241 table.
+// Slots counted from the address point (the vtable symbol plus two words), as in the 25G241 table
+// (Tahoe) and the 24H241 Kernel Debug Kit table (Sequoia).
 struct Anchor { unsigned slot; uintptr_t expected; };
 
 int gAllowed = -1;
@@ -37,6 +43,20 @@ bool vtableMatches()
 {
     const uintptr_t *slots = itlNativeAWDLProtocolVtable + 2;
     const uintptr_t pure = reinterpret_cast<uintptr_t>(&itlAnchorPureVirtual);
+#ifdef ITL_AWDL_GUARD_SEQUOIA
+    const Anchor anchors[] = {
+        {0, reinterpret_cast<uintptr_t>(&itlAnchorAWDLProtocolD1)},
+        {299, reinterpret_cast<uintptr_t>(&itlAnchorWakeFlags)},
+        {380, reinterpret_cast<uintptr_t>(&itlAnchorInterfaceCCA)},
+        {415, pure},                                   // setMacAddress, pure in IO80211SkywalkInterface here
+        {420, reinterpret_cast<uintptr_t>(&itlAnchorStatsDump)},
+        {460, reinterpret_cast<uintptr_t>(&itlAnchorVirtualInit)},
+        {499, reinterpret_cast<uintptr_t>(&itlAnchorReserved15)},
+        {500, pure},
+        {562, pure},
+        {563, 0},
+    };
+#else
     const Anchor anchors[] = {
         {0, reinterpret_cast<uintptr_t>(&itlAnchorAWDLProtocolD1)},
         {300, reinterpret_cast<uintptr_t>(&itlAnchorWakeFlags)},
@@ -48,6 +68,7 @@ bool vtableMatches()
         {567, pure},
         {568, 0},
     };
+#endif
     for (const auto &a : anchors)
         if (slots[a.slot] != a.expected)
             return false;
@@ -68,6 +89,11 @@ bool itlAWDLBuildAllowed()
     } else if (build == ItlAWDL::BuildCheck::Verified) {
         gStatus = "verified";
         gAllowed = 1;
+#ifdef ITL_AWDL_GUARD_SEQUOIA
+    } else if (build == ItlAWDL::BuildCheck::Expected) {
+        gStatus = "expected: macOS 15.8.x kernel not checked offline";
+        gAllowed = 1;
+#endif
     } else if (anyBuild) {
         gStatus = "unverified build, allowed by -itlawdlanybuild";
         gAllowed = 1;
