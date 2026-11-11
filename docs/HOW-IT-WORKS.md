@@ -58,7 +58,7 @@ The `awdl0` transmit pool is 2048 packets. With the 128 used during bring-up, lo
 - patches `bluetoothd`'s pages in memory as they're validated (the way BlueToolFixup does) to take the "supported" path
 - adjusts outgoing HCI commands, such as the random address of each advertising set, and takes over IntelBTPatcher's fix-up before the first scan (IntelBTPatcher must be disabled, since Lilu panics if two plugins hook the same function)
 
-Its byte patterns are exact bytes from one `bluetoothd` per macOS version: 25G241's for the Tahoe build and 24H241's (15.8.3) for the Sequoia build. The four sites and the edits are the same; only addresses, two vtable slots and one struct offset differ. On another build the patterns may not match, and then nothing is changed. `tools/compat/check_compat.sh` reports whether they match a tester's `bluetoothd`.
+Its byte patterns are exact bytes from specific `bluetoothd` builds: 25G241's (26.7.1) and 25G342's (26.7.3) for the Tahoe build, and 24H241's (15.8.3) for the Sequoia build. Each set is tried on every page, and only matches its own build. The four sites and the edits are the same on all three; only addresses and, on Sequoia, two vtable slots and one struct offset differ. On another build the patterns may not match, and then nothing is changed. `tools/compat/check_compat.sh` reports whether they match a tester's `bluetoothd`.
 
 ### 6. Country and channel 149
 

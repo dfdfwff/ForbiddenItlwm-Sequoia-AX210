@@ -26,20 +26,11 @@ static void patched_cs_validate_page(vnode_t vp, memory_object_t pager, memory_o
     FunctionCast(patched_cs_validate_page, orig_cs_validate)(vp, pager, page_offset, data, validated_p, tainted_p, nx_p);
     if (vn_getpath(vp, path, &pathlen) != 0 || LIKELY(strcmp(path, "/usr/sbin/bluetoothd") != 0))
         return;
-    // A different bluetoothd won't match, and then nothing changes.
-    KernelPatcher::findAndReplace(const_cast<void *>(data), PAGE_SIZE, BTLEAdv::advertisingFind,
-                                  sizeof(BTLEAdv::advertisingFind), BTLEAdv::advertisingReplace,
-                                  sizeof(BTLEAdv::advertisingReplace));
-    KernelPatcher::findAndReplace(const_cast<void *>(data), PAGE_SIZE, BTLEAdv::randomAddressFind,
-                                  sizeof(BTLEAdv::randomAddressFind), BTLEAdv::randomAddressReplace,
-                                  sizeof(BTLEAdv::randomAddressReplace));
-    KernelPatcher::findAndReplace(const_cast<void *>(data), PAGE_SIZE, BTLEAdv::extendedConnectionFind,
-                                  sizeof(BTLEAdv::extendedConnectionFind), BTLEAdv::extendedConnectionReplace,
-                                  sizeof(BTLEAdv::extendedConnectionReplace));
-    if (patchScanning)
-        KernelPatcher::findAndReplace(const_cast<void *>(data), PAGE_SIZE, BTLEAdv::scanningFind,
-                                      sizeof(BTLEAdv::scanningFind), BTLEAdv::scanningReplace,
-                                      sizeof(BTLEAdv::scanningReplace));
+    // Each set only matches its own bluetoothd build; on any other build nothing changes.
+    for (const auto &patch : BTLEAdv::kPatches)
+        if (!patch.scanningOnly || patchScanning)
+            KernelPatcher::findAndReplace(const_cast<void *>(data), PAGE_SIZE, patch.find, patch.size,
+                                          patch.replace, patch.size);
 }
 
 // bluetoothd talks to the controller over USB control requests. Commands it doesn't send in
@@ -169,7 +160,7 @@ extern kern_return_t _start(kmod_info_t *, void *);
 extern kern_return_t _stop(kmod_info_t *, void *);
 extern kern_return_t BTLEAdvFixup_kern_start(kmod_info_t *, void *);
 extern kern_return_t BTLEAdvFixup_kern_stop(kmod_info_t *, void *);
-__attribute__((visibility("default"))) KMOD_EXPLICIT_DECL(org.forbiddenitlwm.BTLEAdvFixup, "0.8.0", _start, _stop)
+__attribute__((visibility("default"))) KMOD_EXPLICIT_DECL(org.forbiddenitlwm.BTLEAdvFixup, "0.8.1", _start, _stop)
 __attribute__((visibility("hidden"))) kmod_start_func_t *_realmain = BTLEAdvFixup_kern_start;
 __attribute__((visibility("hidden"))) kmod_stop_func_t *_antimain = BTLEAdvFixup_kern_stop;
 __attribute__((visibility("hidden"))) int _kext_apple_cc = __APPLE_CC__;

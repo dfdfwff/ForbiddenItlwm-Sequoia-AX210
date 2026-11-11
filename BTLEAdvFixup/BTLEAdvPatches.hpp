@@ -1,6 +1,6 @@
-// Byte patterns for /usr/sbin/bluetoothd, x86_64. One set per BTLEAdvFixup build:
-// the Tahoe build matches macOS 26.7.1 (25G241); the Sequoia build (-DBTLEADV_SEQUOIA) matches
-// macOS 15.8.3 (24H241). The four sites and the edits are the same on both; only the addresses,
+// Byte patterns for /usr/sbin/bluetoothd, x86_64. The Tahoe build carries two sets, for macOS 26.7.1
+// (25G241) and 26.7.3 (25G342); the Sequoia build (-DBTLEADV_SEQUOIA) carries one, for 15.8.3 (24H241).
+// Every set is tried on every page, and a set only matches its own build's bluetoothd. The four sites and the edits are the same on both; only the addresses,
 // the vtable slots of the two capability queries and one struct offset differ.
 //
 // bluetoothd asks a controller about extended advertising and scanning only after
@@ -51,6 +51,21 @@ static const uint8_t extendedConnectionReplace[] = {
 static_assert(sizeof(extendedConnectionFind) == sizeof(extendedConnectionReplace), "patch size");
 static_assert(sizeof(advertisingFind) == sizeof(advertisingReplace), "patch size");
 static_assert(sizeof(scanningFind) == sizeof(scanningReplace), "patch size");
+// macOS 26.7.3 (25G342), from Apple's installer (x86_64 slice SHA-256 5ac2b687...). The same four sites,
+// vtable slots (0x918, 0x9a8) and chipset offset (0x334) as 26.7.1; only the call displacements differ.
+// Identified by the same log strings as on 26.7.1.
+static const uint8_t advertisingFind2673[] = { 0x84,0xc0,0x0f,0x84,0x38,0x01,0x00,0x00,0xe8,0x18,0x78,0xf8,0xff,0x48,0x8b,0x08,0x48,0x89,0xc7,0xff,0x91,0x18,0x09,0x00,0x00,0x41,0x89,0xc6 };
+static const uint8_t advertisingReplace2673[] = { 0x84,0xc0,0x90,0x90,0x90,0x90,0x90,0x90,0xe8,0x18,0x78,0xf8,0xff,0x48,0x8b,0x08,0x48,0x89,0xc7,0xb8,0x01,0x00,0x00,0x00,0x90,0x41,0x89,0xc6 };
+static const uint8_t scanningFind2673[] = { 0x84,0xc0,0x0f,0x84,0x38,0x01,0x00,0x00,0xe8,0xc2,0x7a,0xf8,0xff,0x48,0x8b,0x08,0x48,0x89,0xc7,0xff,0x91,0xa8,0x09,0x00,0x00,0x41,0x89,0xc6 };
+static const uint8_t scanningReplace2673[] = { 0x84,0xc0,0x90,0x90,0x90,0x90,0x90,0x90,0xe8,0xc2,0x7a,0xf8,0xff,0x48,0x8b,0x08,0x48,0x89,0xc7,0xb8,0x01,0x00,0x00,0x00,0x90,0x41,0x89,0xc6 };
+static const uint8_t randomAddressFind2673[] = { 0x83,0xb8,0x34,0x03,0x00,0x00,0x03,0x77,0x2a,0x31,0xff,0xe8,0x1e,0x6c,0xce,0xff };
+static const uint8_t randomAddressReplace2673[] = { 0x83,0xb8,0x34,0x03,0x00,0x00,0x03,0x77,0x2a,0x90,0x90,0x90,0x90,0x90,0x90,0x90 };
+static const uint8_t extendedConnectionFind2673[] = { 0x0f,0xb6,0xbd,0x5e,0xff,0xff,0xff,0xe8,0xab,0x9e,0xcf,0xff };
+static const uint8_t extendedConnectionReplace2673[] = { 0xbf,0x01,0x00,0x00,0x00,0x90,0x90,0xe8,0xab,0x9e,0xcf,0xff };
+static_assert(sizeof(advertisingFind2673) == sizeof(advertisingReplace2673), "patch size");
+static_assert(sizeof(scanningFind2673) == sizeof(scanningReplace2673), "patch size");
+static_assert(sizeof(randomAddressFind2673) == sizeof(randomAddressReplace2673), "patch size");
+static_assert(sizeof(extendedConnectionFind2673) == sizeof(extendedConnectionReplace2673), "patch size");
 #else
 // macOS 15.8.3 (24H241). The capability queries are "callq *0x7c0(%rcx)" (advertising sets) and
 // "callq *0x848(%rcx)" (extended scanning); the chipset field is at 0x2f8. Each site was matched to
@@ -81,4 +96,21 @@ static_assert(sizeof(scanningFind) == sizeof(scanningReplace), "patch size");
 static_assert(sizeof(randomAddressFind) == sizeof(randomAddressReplace), "patch size");
 static_assert(sizeof(extendedConnectionFind) == sizeof(extendedConnectionReplace), "patch size");
 #endif
+
+// Every patch this build tries, in the order they're applied. scanningOnly ones are skipped with -btlenoscan.
+struct Patch { const uint8_t *find; const uint8_t *replace; size_t size; bool scanningOnly; };
+#define BTLEADV_PATCH(f, r, scan) Patch{f, r, sizeof(f), scan}
+static const Patch kPatches[] = {
+    BTLEADV_PATCH(advertisingFind, advertisingReplace, false),
+    BTLEADV_PATCH(randomAddressFind, randomAddressReplace, false),
+    BTLEADV_PATCH(extendedConnectionFind, extendedConnectionReplace, false),
+    BTLEADV_PATCH(scanningFind, scanningReplace, true),
+#ifndef BTLEADV_SEQUOIA
+    BTLEADV_PATCH(advertisingFind2673, advertisingReplace2673, false),
+    BTLEADV_PATCH(randomAddressFind2673, randomAddressReplace2673, false),
+    BTLEADV_PATCH(extendedConnectionFind2673, extendedConnectionReplace2673, false),
+    BTLEADV_PATCH(scanningFind2673, scanningReplace2673, true),
+#endif
+};
+#undef BTLEADV_PATCH
 }

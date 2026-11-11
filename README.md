@@ -62,12 +62,13 @@ Tested with the same hackintosh and iPhone, on Tahoe 26.7.1:
   | macOS | Build | Status |
   | --- | --- | --- |
   | Tahoe | 26.7.1 (25G241) | Tested on hardware |
-  | Tahoe | 26.7.2 (25G332), 26.7.3 (25G342) | Wi-Fi side verified offline from Apple's Kernel Debug Kit. Bluetooth side and hardware not tested yet |
+  | Tahoe | 26.7.3 (25G342) | Wi-Fi side verified offline from Apple's Kernel Debug Kit. BTLEAdvFixup 0.8.1's patterns verified offline from Apple's installer. Not tested on hardware yet |
+  | Tahoe | 26.7.2 (25G332) | Wi-Fi side verified offline from Apple's Kernel Debug Kit. BTLEAdvFixup's patterns not checked for this build. Not tested on hardware yet |
   | Sequoia | 15.8 (24H23), 15.8.3 (24H241) | Wi-Fi side verified offline from Apple's Kernel Debug Kits. BTLEAdvFixup's patterns match 15.8.3. Not tested on hardware yet |
   | Sequoia | 15.8.1 (24H32), 15.8.2 (24H232) | Expected to work (same kernel family), not checked offline. BTLEAdvFixup's patterns may not match |
   | Any other build | | AirDrop stays off and normal Wi-Fi works |
 
-  The driver checks the build itself when it starts. On a build it doesn't know, it keeps AirDrop off instead of risking a kernel panic. BTLEAdvFixup's patterns are exact bytes from one `bluetoothd` per macOS version (26.7.1 and 15.8.3). On other builds, `tools/compat/check_compat.sh` shows whether they still match.
+  The driver checks the build itself when it starts. On a build it doesn't know, it keeps AirDrop off instead of risking a kernel panic. BTLEAdvFixup's patterns are exact bytes from specific `bluetoothd` builds (26.7.1 and 26.7.3 on Tahoe, 15.8.3 on Sequoia). On other builds, `tools/compat/check_compat.sh` shows whether they still match.
 - **An Intel Wi-Fi card that AirportItlwm supports.** Only the AX211 is tested by the project. Users have reported the Tahoe kext working on an AX201 and on other AX211 machines on 26.7.1 (see [user reports](docs/TESTED-HARDWARE.md#user-reports)). The AX210 and AX411, and CNVi radios on Alder Lake and newer, are close relatives and may work. See the [compatibility table](tools/compat/README.md).
 - **An Intel Bluetooth controller** with [IntelBluetoothFirmware](https://github.com/OpenIntelWireless/IntelBluetoothFirmware) and BlueToolFixup ([BrcmPatchRAM](https://github.com/acidanthera/BrcmPatchRAM)), plus [Lilu](https://github.com/acidanthera/Lilu) and this project's **BTLEAdvFixup**. AirDrop finds devices over Bluetooth LE before it uses Wi-Fi.
 - **OpenCore.**

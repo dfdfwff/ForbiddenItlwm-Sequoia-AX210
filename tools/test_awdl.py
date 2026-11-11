@@ -26,6 +26,10 @@ subprocess.run(["python3", str(root / "tests/monitor_tx_ownership.py")], check=T
 subprocess.run(["python3", str(root / "tests/monitor_channel.py")], check=True)
 subprocess.run(["python3", str(root / "tests/monitor_probe.py")], check=True)
 subprocess.run(["python3", str(root / "tests/btleadv_patterns.py")], check=True)
+# The Tahoe 26.7.3 set needs a 26.7.3 bluetoothd. Point this at one to check it.
+if os.environ.get("FORBIDDEN_2673_BLUETOOTHD"):
+    subprocess.run(["python3", str(root / "tests/btleadv_patterns.py"), "--set", "2673",
+                    "--binary", os.environ["FORBIDDEN_2673_BLUETOOTHD"]], check=True)
 # The Sequoia table needs a 15.8.3 bluetoothd, which isn't on a Tahoe Mac. Point this at one to check it.
 if os.environ.get("FORBIDDEN_SEQUOIA_BLUETOOTHD"):
     subprocess.run(["python3", str(root / "tests/btleadv_patterns.py"), "--target", "sequoia",

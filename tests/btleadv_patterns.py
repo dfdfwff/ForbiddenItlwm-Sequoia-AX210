@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Check a BTLEAdvFixup patch table against a real bluetoothd.
 
-Default: the Tahoe table against this Mac's /usr/sbin/bluetoothd.
-  --target sequoia --binary <path>   the Sequoia table against a 15.8.3 bluetoothd
+Default: the Tahoe 26.7.1 set against this Mac's /usr/sbin/bluetoothd.
+  --set 2673 --binary <path>          the Tahoe 26.7.3 set against a 26.7.3 bluetoothd
+  --target sequoia --binary <path>   the Sequoia set against a 15.8.3 bluetoothd
+For Tahoe it also checks that the other Tahoe set matches nothing in the binary.
 
 This shows each pattern matches exactly once and changes only what it should. It
 doesn't show that the Bluetooth controller accepts extended advertising.
@@ -13,11 +15,15 @@ root=Path(__file__).resolve().parents[1]
 parser=argparse.ArgumentParser()
 parser.add_argument('--target',choices=('tahoe','sequoia'),default='tahoe')
 parser.add_argument('--binary',type=Path,default=Path('/usr/sbin/bluetoothd'))
+parser.add_argument('--set',choices=('2671','2673'),default='2671',help='Tahoe only: which build set to check')
 args=parser.parse_args()
 whole=(root/'BTLEAdvFixup/BTLEAdvPatches.hpp').read_text()
 tahoe,sequoia=whole.split('#ifndef BTLEADV_SEQUOIA',1)[1].split('\n#else\n',1)
 source={'tahoe':tahoe,'sequoia':sequoia}[args.target]
-def table(name):
+suffix='' if args.target=='sequoia' or args.set=='2671' else args.set
+other='2673' if args.target=='tahoe' and args.set=='2671' else ''
+def table(name, sfx=None):
+    name=name.replace('Find','Find'+(suffix if sfx is None else sfx)).replace('Replace','Replace'+(suffix if sfx is None else sfx))
     body=re.search(r'%s\[\] = \{(.*?)\};'%name,source,re.S).group(1)
     return bytes(int(x,16) for x in re.findall(r'0x[0-9a-f]{2}',body))
 # Read the x86_64 slice directly. lipo writing from a mapped copy of this file failed
@@ -66,4 +72,10 @@ offset=binary.index(find)
 assert offset//4096==(offset+len(find)-1)//4096,'pattern crosses a page'
 assert len(find)==len(replace) and find[7:]==replace[7:] and binary.count(replace)==0
 assert find[:3]==bytes.fromhex('0fb6bd') and replace[:7]==bytes.fromhex('bf010000009090')
-print('BTLEAdvFixup %s patterns: passed against %s (no controller test)'%(args.target,args.binary))
+if args.target=='tahoe':
+    # The other Tahoe set must match nothing here, or it could patch the wrong place.
+    for name in ('advertising','scanning','randomAddress','extendedConnection'):
+        for kind in ('Find','Replace'):
+            assert binary.count(table(name+kind, other))==0, ('other set matches', name, kind)
+label=args.target+('' if args.target=='sequoia' else ' '+args.set)
+print('BTLEAdvFixup %s patterns: passed against %s (no controller test)'%(label,args.binary))

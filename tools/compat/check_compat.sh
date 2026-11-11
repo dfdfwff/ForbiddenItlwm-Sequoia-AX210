@@ -86,15 +86,17 @@ fi
 # ---------------------------------------------------------------- Wi-Fi card
 head1 "2. Intel Wi-Fi card"
 # One line per PCI network controller: vendor device subvendor subdevice revision ioname model
-# (ioreg -r prints each match as a block starting at column 0; its children, such as the Wi-Fi
-# driver that publishes IOModel, the firmware name, are indented inside it.)
+# (ioreg -r prints each match as a block. Its children, such as the Wi-Fi driver that publishes
+# IOModel, the firmware name, are indented inside it, and so is a card behind a PCI bridge.)
 le16() { # "<f0510000>" -> 51f0
     local h=${1#<}; h=${h%>}
     printf '%s%s' "${h:2:2}" "${h:0:2}"
 }
 PCI_LINES=$(ioreg -r -c IOPCIDevice -l -w0 2>/dev/null | awk '
     function flush() { if (cls ~ /^<..8002/) print ven, dev, sven, sdev, rev, nm, (model == "" ? "-" : model); }
-    /^\+-o / { if (started) flush(); started=1; ven=dev=sven=sdev=rev=cls=nm=model=""; split($0, a, " "); nm=a[2]; next }
+    # A device behind a PCI bridge (a discrete M.2 card behind a root port) is printed inside the
+    # entry of the bridge, indented, so a new device starts at any IOPCIDevice line, at any depth.
+    /^[ |]*\+-o .*<class IOPCIDevice,/ { if (started) flush(); started=1; ven=dev=sven=sdev=rev=cls=nm=model=""; s=$0; sub(/^[ |]*\+-o /, "", s); split(s, a, " "); nm=a[1]; next }
     /"class-code" = /      && cls == ""  { cls=$NF }
     /"vendor-id" = /       && ven == ""  { ven=$NF }
     /"device-id" = /       && dev == ""  { dev=$NF }
@@ -248,8 +250,8 @@ LILU=$(kext_version as.vit9696.Lilu)
 if [ -n "$BTLEADV" ]; then pass "BTLEAdvFixup $BTLEADV is loaded."; else info "BTLEAdvFixup isn't loaded. It's part of the AirDrop package."; fi
 [ -n "$IBTPATCH" ] && [ -n "$BTLEADV" ] && warn "IntelBTPatcher and BTLEAdvFixup are both loaded. The tested setup disables IntelBTPatcher, as both hook the same USB requests."
 # BTLEAdvFixup patches four places in bluetoothd. Its patterns are exact bytes from macOS 26.7.1
-# (25G241) for the Tahoe build and from 15.8.3 (24H241) for the Sequoia build, so they only match a
-# bluetoothd with the same build. This reads /usr/sbin/bluetoothd
+# (25G241) and 26.7.3 (25G342) for the Tahoe build, and from 15.8.3 (24H241) for the Sequoia build, so
+# they only match a bluetoothd of one of those builds. This reads /usr/sbin/bluetoothd
 # (read-only) and counts each site in its original form and, when BTLEAdvFixup is already running and
 # the page cache returns the patched page, in its patched form. Generated from
 # BTLEAdvFixup/BTLEAdvPatches.hpp; keep the two in step.
@@ -265,10 +267,15 @@ if [ -r "$BTD" ] && command -v perl >/dev/null 2>&1; then
             @randomAddress = (n("83b8f8020000037723" . "31ffe859abd2ff"), n("83b8f802000003772390909090909090"));
             @extendedConnection = (n("0fb6bd5effffffe800cfd3ff"), n("bf010000009090e800cfd3ff"));
         } else {
-            @advertising = (n("84c00f8438010000e80878f8ff488b084889c7ff91180900004189c6"), n("84c0909090909090e80878f8ff488b084889c7b801000000904189c6"));
-            @scanning = (n("84c00f8438010000e8b27af8ff488b084889c7ff91a80900004189c6"), n("84c0909090909090e8b27af8ff488b084889c7b801000000904189c6"));
-            @randomAddress = (n("83b83403000003772a31ffe83e6bceff"), n("83b83403000003772a90909090909090"));
-            @extendedConnection = (n("0fb6bd5effffffe8cb9dcfff"), n("bf010000009090e8cb9dcfff"));
+            # Tahoe: the 26.7.1 and 26.7.3 sets. Only one set can match a given bluetoothd.
+            @advertising = (n("84c00f8438010000e80878f8ff488b084889c7ff91180900004189c6") + n("84c00f8438010000e81878f8ff488b084889c7ff91180900004189c6"),
+                            n("84c0909090909090e80878f8ff488b084889c7b801000000904189c6") + n("84c0909090909090e81878f8ff488b084889c7b801000000904189c6"));
+            @scanning = (n("84c00f8438010000e8b27af8ff488b084889c7ff91a80900004189c6") + n("84c00f8438010000e8c27af8ff488b084889c7ff91a80900004189c6"),
+                         n("84c0909090909090e8b27af8ff488b084889c7b801000000904189c6") + n("84c0909090909090e8c27af8ff488b084889c7b801000000904189c6"));
+            @randomAddress = (n("83b83403000003772a31ffe83e6bceff") + n("83b83403000003772a31ffe81e6cceff"),
+                              n("83b83403000003772a90909090909090") + n("83b83403000003772a90909090909090"));
+            @extendedConnection = (n("0fb6bd5effffffe8cb9dcfff") + n("0fb6bd5effffffe8ab9ecfff"),
+                                   n("bf010000009090e8cb9dcfff") + n("bf010000009090e8ab9ecfff"));
         }
         for my $p (["advertising", @advertising], ["scanning", @scanning], ["randomAddress", @randomAddress], ["extendedConnection", @extendedConnection]) {
             my ($name, $orig, $patched) = @$p;
