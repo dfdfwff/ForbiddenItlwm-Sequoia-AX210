@@ -48,7 +48,7 @@ OS_BUILD=$(sw_vers -buildVersion 2>/dev/null)
 ARCH=$(uname -m)
 info "macOS $OS_VER ($OS_BUILD), $ARCH"
 if [ "$ARCH" != "x86_64" ]; then
-    fail "Needs an Intel (x86_64) Mac or Hackintosh."
+    fail "Needs an Intel (x86_64) hackintosh."
     BLOCKERS=$((BLOCKERS + 1))
 fi
 OS_MAJOR=${OS_VER%%.*}

@@ -27,7 +27,7 @@ This beta has been tested on one machine: an HP Envy x360 13-bf with an Intel AX
 
 ## Building
 
-You need the Xcode Command Line Tools (`xcode-select --install`). Full Xcode isn't needed. The build was tested with Python 3 on an Intel Mac.
+You need the Xcode Command Line Tools (`xcode-select --install`). Full Xcode isn't needed. The build was tested with Python 3 on the Intel hackintosh it was developed on.
 
 1. Put MacKernelSDK in the repository folder. Commit `3f75008` is the one tested:
 

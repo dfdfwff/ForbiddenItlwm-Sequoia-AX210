@@ -7,7 +7,7 @@
 # Usage: bash collect_hw_macos.sh [output-folder] [--include-country]
 # The report is saved on your Desktop unless you name another folder. The script prints its full path.
 #
-# What it collects: macOS build, Mac model identifier and CPU name, the PCI IDs and driver properties
+# What it collects: macOS build, SMBIOS model identifier (the Mac model the hackintosh is set up as) and CPU name, the PCI IDs and driver properties
 # of the Intel Wi-Fi card, the Intel Bluetooth controller's USB IDs and controller summary, which
 # third-party kexts are loaded, AirDrop-related boot flags, the Wi-Fi interface's supported channels
 # and current channel/width, and the AirDrop driver's status counters if its build is running.

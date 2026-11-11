@@ -112,7 +112,7 @@ See **[docs/INSTALL.md](docs/INSTALL.md)**. In short:
 ## Disclaimer
 
 **This is beta software.** It is experimental, has been tested on a single machine, and may have serious bugs.
-- **What can go wrong:** it runs in the macOS kernel, so a bug can cause kernel panics, lost Wi-Fi or Bluetooth, failed transfers or a Mac that won't boot from that EFI.
+- **What can go wrong:** it runs in the macOS kernel, so a bug can cause kernel panics, lost Wi-Fi or Bluetooth, failed transfers or a hackintosh that won't boot from that EFI.
 - **Protect yourself:** keep backups, test from a USB stick, and keep a working EFI you can boot without it.
 - **Your risk:** you use it at your own risk. As the GPL says, it comes with no warranty of any kind, and the authors aren't liable for any damage or data loss.
 

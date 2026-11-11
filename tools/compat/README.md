@@ -73,7 +73,7 @@ Linux's driver reports the card's exact name, radio, firmware version and firmwa
 
 ### What the reports contain
 
-- **System:** macOS or Linux version, Mac model identifier or laptop maker and model, CPU name.
+- **System:** macOS or Linux version, the SMBIOS model identifier (the Mac model the hackintosh is set up as), the laptop or motherboard maker and model, CPU name.
 - **Wi-Fi card:** PCI IDs, the firmware the driver loaded, the driver's version and properties.
 - **Bluetooth:** the Intel controller's USB IDs and the controller summary.
 - **Loaded kexts:** the names and versions of third-party kexts.
