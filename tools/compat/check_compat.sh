@@ -62,11 +62,11 @@ elif [ -n "$OS_BUILD" ] && echo " $OFFLINE_BUILDS " | grep -q " $OS_BUILD "; the
     pass "the driver depends on it. See the bluetoothd pattern check below for the Bluetooth side. Please report your result."
 elif [ "${OS_MAJOR:-0}" = "15" ]; then
     # The Sequoia kexts (ForbiddenItlwm and BTLEAdvFixup for Sequoia), not the Tahoe ones.
-    SEQ_VERIFIED="24H23 24H241"
+    SEQ_VERIFIED="24H23 24H232 24H241"   # 24H232 (15.8.2) runs 24H241's kernel
     OS_MINOR=$(echo "$OS_VER" | cut -d. -f2)
     if echo " $SEQ_VERIFIED " | grep -q " $OS_BUILD "; then
-        pass "macOS $OS_VER ($OS_BUILD): supported by the Sequoia kexts. Their Wi-Fi stack was checked offline; nobody has"
-        pass "tested Sequoia on hardware yet, so please report your result. Use the Sequoia ForbiddenItlwm and BTLEAdvFixup."
+        pass "macOS $OS_VER ($OS_BUILD): supported by the Sequoia kexts. Their Wi-Fi stack was checked offline, but Sequoia"
+        pass "isn't confirmed working on hardware yet, so please report your result. Use the Sequoia ForbiddenItlwm and BTLEAdvFixup."
     elif [ "${OS_MINOR:-0}" = "8" ]; then
         warn "macOS $OS_VER ($OS_BUILD): expected to work with the Sequoia kexts (same 15.8 kernel family), but this build"
         warn "wasn't checked offline. The driver still checks Apple's Wi-Fi tables at boot. Please report your result."

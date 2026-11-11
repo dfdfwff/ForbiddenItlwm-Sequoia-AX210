@@ -9,7 +9,7 @@ ioreg -l -w0 | grep -E '"ItlwmAWDL(InterfaceBuild|BuildCheck)"|"ITLAWDLCoex(Adde
 | Key | Healthy value |
 | --- | --- |
 | `ItlwmAWDLInterfaceBuild` | `forbidden-0.4.0-beta1`, or `forbidden-0.4.0-beta1-sequoia` |
-| `ItlwmAWDLBuildCheck` | `verified`, or on Sequoia 15.8.1 and 15.8.2 `expected: macOS 15.8.x kernel not checked offline`. Anything starting with `blocked` means AirDrop is off on this macOS build: see below |
+| `ItlwmAWDLBuildCheck` | `verified`, or on Sequoia 15.8.1 `expected: macOS 15.8.x kernel not checked offline`. Anything starting with `blocked` means AirDrop is off on this macOS build: see below |
 | `ITLAWDLCoexAdded` | Yes: the AirDrop listener exists |
 | `ITLAWDLCoexChannel`, `ITLAWDLCoexOwnWidth` | 149 and 80 |
 | `ITLAWDLCoexCountryLearned` | Yes |
@@ -22,7 +22,7 @@ The driver's log doesn't reach the unified log, so its state is only in the I/O 
 
 ## `ItlwmAWDLBuildCheck` says blocked
 
-The driver only starts AirDrop on macOS builds whose Wi-Fi stack was checked: Tahoe 26.7.1 to 26.7.3, and Sequoia 15.8 and 15.8.3 (other 15.8.x builds start as "expected").
+The driver only starts AirDrop on macOS builds whose Wi-Fi stack was checked: Tahoe 26.7.1 to 26.7.3, and Sequoia 15.8 to 15.8.3 (15.8.2 shares 15.8.3's kernel; 15.8.1 starts as "expected").
 - **Nothing at all, and no ForbiddenItlwm keys:** check that you used the kexts for your macOS version. A ForbiddenItlwm built for the other version refuses to start, and logs `this kext is for macOS …`.
 - **`blocked: unverified macOS build`:** your build isn't on the list yet. Normal Wi-Fi still works. Please open an issue with your build (`sw_vers -buildVersion`) so it can be checked. `-itlawdlanybuild` forces AirDrop on anyway, at the risk of a kernel panic.
 - **`blocked: IO80211AWDLProtocol table differs`:** the Wi-Fi stack isn't the one the driver was checked against. If you applied OpenCore Legacy Patcher's "Modern Wireless" root patches, revert them. Otherwise Apple changed the part of its Wi-Fi stack the driver plugs into. Starting AirDrop would likely panic, so no flag overrides this. Please report your build.

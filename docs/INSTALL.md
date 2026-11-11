@@ -6,7 +6,7 @@ This beta has been tested on one hackintosh: an HP Envy x360 13-bf with an Intel
 
 - **Check your macOS build:** `sw_vers -buildVersion`.
   - **Tahoe:** `25G241`, `25G332` or `25G342`. Use the Tahoe kexts.
-  - **Sequoia:** `24H23` (15.8) or `24H241` (15.8.3) were checked offline; `24H32` (15.8.1) and `24H232` (15.8.2) are expected to work. Use the Sequoia kexts.
+  - **Sequoia:** `24H23` (15.8) and `24H241` (15.8.3) were checked offline, and `24H232` (15.8.2) has 15.8.3's kernel; `24H32` (15.8.1) is expected to work. Use the Sequoia kexts. Sequoia isn't confirmed working on hardware yet.
   - On any other build the driver keeps AirDrop off and works as plain Wi-Fi.
 - **Use the kexts for your macOS version.** ForbiddenItlwm and BTLEAdvFixup are built separately for Tahoe and for Sequoia. A ForbiddenItlwm built for the other version refuses to start, and BTLEAdvFixup's patterns won't match.
 - **Revert OCLP Wi-Fi root patches.** ForbiddenItlwm uses the Wi-Fi stack that ships with macOS. If you applied OpenCore Legacy Patcher's "Modern Wireless" root patches for an older AirportItlwm, revert them first.
@@ -107,7 +107,7 @@ All of this goes on the **USB stick's** EFI.
    ioreg -l -w0 | grep -E '"ItlwmAWDL(InterfaceBuild|BuildCheck)"|"ITLAWDLCoex(Added|Channel|CountryLearned)"'
    ```
 
-   You should see `forbidden-0.4.0-beta1` (`forbidden-0.4.0-beta1-sequoia` on Sequoia), `BuildCheck` `verified` (or `expected: …` on 15.8.1 and 15.8.2), `Added` Yes, `Channel` 149 and `CountryLearned` Yes. `Channel` 6 means the firmware hasn't opened channel 149: see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+   You should see `forbidden-0.4.0-beta1` (`forbidden-0.4.0-beta1-sequoia` on Sequoia), `BuildCheck` `verified` (or `expected: …` on 15.8.1), `Added` Yes, `Channel` 149 and `CountryLearned` Yes. `Channel` 6 means the firmware hasn't opened channel 149: see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 4. Or run `bash tools/compat/check_compat.sh` again. It now also reads the listener's state.
 5. Turn on AirDrop on both devices. Contacts Only works when the iPhone and the Mac share an Apple Account or know each other as contacts. Otherwise use Everyone for 10 Minutes.

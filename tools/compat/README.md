@@ -44,7 +44,7 @@ What the verdict means:
 | Unsupported | Pre-2013 cards, Wi-Fi 7 (BE200, BE201), Meteor Lake CNVi | Not supported |
 
 Two things stop it working whatever the card:
-- **The macOS build.** With the Tahoe kexts, AirDrop starts on macOS 26.7.1 (25G241), 26.7.2 (25G332) and 26.7.3 (25G342). With the Sequoia kexts, on 15.8 (24H23) and 15.8.3 (24H241), and as "expected" on other 15.8.x builds. On other builds the driver keeps AirDrop off and works as plain Wi-Fi. The check also tests whether BTLEAdvFixup's patterns for your macOS version (taken from 26.7.1 or 15.8.3) match your `bluetoothd`.
+- **The macOS build.** With the Tahoe kexts, AirDrop starts on macOS 26.7.1 (25G241), 26.7.2 (25G332) and 26.7.3 (25G342). With the Sequoia kexts, on 15.8 (24H23), 15.8.2 (24H232, 15.8.3's kernel) and 15.8.3 (24H241), and as "expected" on other 15.8.x builds. On other builds the driver keeps AirDrop off and works as plain Wi-Fi. The check also tests whether BTLEAdvFixup's patterns for your macOS version (taken from 26.7.1, 26.7.3 or 15.8.3) match your `bluetoothd`.
 - **Bluetooth.** AirDrop finds devices over Bluetooth LE first, so it needs a working Intel Bluetooth controller.
 
 A good card can still be slow. The firmware opens channel 149, the fast mode, only after a nearby network tells it which country it is in. Until then the driver falls back to channel 6, which is very slow. Most home and office routers advertise their country. In the project's tests, an iPhone's Personal Hotspot switched on nearby (without joining it) also taught the firmware. The driver never overrides the firmware's choice, and setting `itlwm_cc` doesn't help: it only changes the code macOS displays.

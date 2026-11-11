@@ -67,8 +67,9 @@ Tested with the same hackintosh and iPhone, on Tahoe 26.7.1:
   | Tahoe | 26.7.1 (25G241) | Tested on hardware |
   | Tahoe | 26.7.3 (25G342) | Reported working by a user (AX210). Wi-Fi side verified offline from Apple's Kernel Debug Kit, BTLEAdvFixup's patterns from Apple's installer |
   | Tahoe | 26.7.2 (25G332) | Reported working by a user (AX210). Wi-Fi side verified offline from Apple's Kernel Debug Kit. BTLEAdvFixup's patterns are the same bytes as 26.7.3's |
-  | Sequoia | 15.8 (24H23), 15.8.3 (24H241) | Wi-Fi side verified offline from Apple's Kernel Debug Kits. BTLEAdvFixup's patterns match 15.8.3. Not tested on hardware yet |
-  | Sequoia | 15.8.1 (24H32), 15.8.2 (24H232) | Expected to work (same kernel family), not checked offline. BTLEAdvFixup's patterns may not match |
+  | Sequoia | 15.8 (24H23), 15.8.3 (24H241) | Wi-Fi side verified offline from Apple's Kernel Debug Kits. BTLEAdvFixup's patterns match 15.8.3. Not confirmed working on hardware yet |
+  | Sequoia | 15.8.2 (24H232) | Same kernel as 15.8.3, so the build check passes. One user report (AX201): the Mac sees the iPhone, but sending doesn't work yet ([issue #7](https://github.com/retropineaple/ForbiddenItlwm/issues/7)). BTLEAdvFixup's patterns may not match |
+  | Sequoia | 15.8.1 (24H32) | Expected to work (same kernel family), not checked offline. BTLEAdvFixup's patterns may not match |
   | Any other build | | AirDrop stays off and normal Wi-Fi works |
 
   The driver checks the build itself when it starts. On a build it doesn't know, it keeps AirDrop off instead of risking a kernel panic. BTLEAdvFixup's patterns are exact bytes from specific `bluetoothd` builds (26.7.1, and 26.7.2 and 26.7.3, which share theirs, on Tahoe; 15.8.3 on Sequoia). On other builds, `tools/compat/check_compat.sh` shows whether they still match.
@@ -121,10 +122,11 @@ See **[docs/INSTALL.md](docs/INSTALL.md)**. In short:
 
 ## Known limitations
 
-- **Few macOS builds.** Tahoe 26.7.1 to 26.7.3 and Sequoia 15.8 to 15.8.3. On any other build the driver keeps AirDrop off. Everything except 26.7.1 still needs reports from real hardware, and Sequoia hasn't been booted at all yet.
-- **One card tested by the project.** Users have reported the AX201 and other AX211 machines working on Tahoe 26.7.1. Everything else is untested.
-- **Cold iPhone → Mac connects are slow,** usually 3 to 10 s and sometimes longer. The time goes into the iPhone finding the Mac before any data moves. This is the main open problem.
-- **No sleep and wake testing** beyond normal use on the test machine.
+- **Few macOS builds.** Tahoe 26.7.1 to 26.7.3 and Sequoia 15.8 to 15.8.3. On any other build the driver keeps AirDrop off. Users report 26.7.2 and 26.7.3 working. **Sequoia isn't confirmed working yet:** on the one report so far, the Mac sees the iPhone but can't send ([issue #7](https://github.com/retropineaple/ForbiddenItlwm/issues/7)).
+- **One card tested by the project.** Users have reported the AX201 and other AX211 machines working on Tahoe 26.7.1, and the AX210 on 26.7.2 and 26.7.3. Everything else is untested.
+- **Connects can be slow.** A cold iPhone → Mac connect usually takes 3 to 10 s, and sometimes longer: the time goes into the iPhone finding the Mac before any data moves. Mac → iPhone usually takes a few seconds, and now and then a first try fails while the Mac looks up the iPhone. This is the main open problem.
+- **Sleep isn't tested.** Sleep is disabled on the test machine.
+- **macOS updates with BTLEAdvFixup active can fail.** Boot once without `-btleadv` before updating macOS.
 - **Channel 6 fallback is very slow.** It happens when the firmware hasn't learned a country that allows channel 149.
 - **iPhone only.** iPads and other Macs are expected to work the same way, but haven't been tried.
 - **Boot flags.** The beta still runs on a long list of them. Simpler defaults are planned.
@@ -135,7 +137,7 @@ These are plans, not promises. There are no dates, and the order isn't fixed.
 
 - **Instant Hotspot:** joining the iPhone's hotspot from the Wi-Fi menu without typing the password.
 - **Continuity Camera:** using the iPhone as the Mac's webcam.
-- **Faster connects:** cutting the 3 to 10 s a cold iPhone → Mac transfer spends finding the Mac.
+- **Faster connects:** cutting the time a transfer spends before any data moves, in both directions.
 - **macOS Sonoma 14 and Ventura 13:** separate kexts for each, like Tahoe and Sequoia. Each needs its own study of that version's Wi-Fi stack first, so support isn't certain.
 - **Fewer boot flags:** sensible defaults, so the beta doesn't need its long list of flags.
 - **A unified Bluetooth kext that survives macOS updates:** a Bluetooth kext made for ForbiddenItlwm, replacing BTLEAdvFixup, IntelBluetoothFirmware and BlueToolFixup, so all wireless connectivity needs just two kexts besides Lilu. Its patches would keep working across small macOS updates.

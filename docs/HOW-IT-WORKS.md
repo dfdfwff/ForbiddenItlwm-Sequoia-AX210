@@ -58,7 +58,7 @@ The `awdl0` transmit pool is 2048 packets. With the 128 used during bring-up, lo
 - patches `bluetoothd`'s pages in memory as they're validated (the way BlueToolFixup does) to take the "supported" path
 - adjusts outgoing HCI commands, such as the random address of each advertising set, and takes over IntelBTPatcher's fix-up before the first scan (IntelBTPatcher must be disabled, since Lilu panics if two plugins hook the same function)
 
-Its byte patterns are exact bytes from specific `bluetoothd` builds: 25G241's (26.7.1) and 25G342's (26.7.3) for the Tahoe build, and 24H241's (15.8.3) for the Sequoia build. Each set is tried on every page, and only matches its own build. The four sites and the edits are the same on all three; only addresses and, on Sequoia, two vtable slots and one struct offset differ. On another build the patterns may not match, and then nothing is changed. `tools/compat/check_compat.sh` reports whether they match a tester's `bluetoothd`.
+Its byte patterns are exact bytes from specific `bluetoothd` builds: 25G241's (26.7.1) and 25G342's (26.7.3, the same bytes as 26.7.2's) for the Tahoe build, and 24H241's (15.8.3) for the Sequoia build. Each set is tried on every page, and only matches its own build. The four sites and the edits are the same on all three; only addresses and, on Sequoia, two vtable slots and one struct offset differ. On another build the patterns may not match, and then nothing is changed. `tools/compat/check_compat.sh` reports whether they match a tester's `bluetoothd`.
 
 ### 6. Country and channel 149
 
@@ -67,14 +67,14 @@ Intel firmware starts in world mode, where channels 149 to 161 are listen-only. 
 ### 7. Which macOS builds AirDrop starts on
 
 Each macOS version has its own build (`tools/build.py --target tahoe|sequoia`), with that version's IO80211 class declarations, and refuses to start on any other macOS version. `ForbiddenItlwm/AWDLBuildGuard.cpp` then decides once, at startup, and only lets AirDrop start when both of these hold:
-- **The kernel is one whose Wi-Fi stack was verified.** Tahoe: 26.7.1 on hardware, and 26.7.2 and 26.7.3 offline. Sequoia: 15.8 and 15.8.3 offline, and other 15.8.x kernels as "expected". For 26.7.2 and 26.7.3, the Kernel Debug Kits showed the following matching 26.7.1:
+- **The kernel is one whose Wi-Fi stack was verified.** Tahoe: 26.7.1 on hardware, and 26.7.2 and 26.7.3 offline (users have since reported both working). Sequoia: 15.8 and 15.8.3 offline (15.8.2 runs 15.8.3's kernel), and other 15.8.x kernels as "expected". For 26.7.2 and 26.7.3, the Kernel Debug Kits showed the following matching 26.7.1:
   - IOSkywalkFamily is identical.
   - IO80211Family's AWDL, interface, buffer and registration code is instruction for instruction the same.
   - All 568, 505 and 461 slots of the three virtual tables match.
   - Every kernel symbol the driver imports exists.
 - **Apple's `IO80211AWDLProtocol` table, read at runtime,** has the expected functions at anchor slots spread across it, its own pure methods where expected, and ends where expected (568 slots on Tahoe, 563 on Sequoia). This catches a changed table on any build.
 
-When either fails, the driver behaves like plain AirportItlwm. `-itlawdlanybuild` skips the first check, never the second. The result is published as `ItlwmAWDLBuildCheck`.
+When either fails, the driver behaves like plain AirportItlwm. `-itlawdlanybuild` skips the first check, never the second. The result is published as `ItlwmAWDLBuildCheck`. Copying macOS's AirDrop announcement (`-itlawdlmitx`) reads a data layout the table check doesn't cover, so it needs a verified kernel: it stays off on "expected" kernels and with `-itlawdlanybuild`.
 
 **Sequoia differs from Tahoe in a few places the driver depends on.** The 15.8 and 15.8.3 Kernel Debug Kits (identical tables) showed:
 - the same 63 AWDL protocol methods in the same order, with about ten base-class methods added or removed before them, and objects 16 bytes smaller
