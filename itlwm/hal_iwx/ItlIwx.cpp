@@ -5854,6 +5854,7 @@ static uint32_t awdlCoexCycleSecs, awdlCoexCycleFlips;
 // macOS's awdl0, as in monitor mode, so peers can be discovered while Wi-Fi stays up. Receive only.
 static bool awdlCoexRx;
 static uint32_t awdlCoexForwarded, awdlCoexForwardRefused, awdlCoexForwardMalformed;
+static uint32_t awdlCoexZeroPadTrimmed;   // listener frames whose trailing zero padding was cut (issue #6)
 // -itlawdlcoextx: macOS's sync frames go out from that context every 110 TU, one at a time, on the
 // station's channel, unless the firmware marks it passive, DFS or no-ad-hoc. No data frames yet.
 constexpr uint32_t kAwdlCoexTxPeriodMS = 113;
@@ -6483,6 +6484,7 @@ static void awdlCoexPublish()
     }
     if (awdlCoexRx) {
         root->setProperty("ITLAWDLCoexForwarded", awdlCoexForwarded, 32);
+        root->setProperty("ITLAWDLCoexZeroPadTrimmed", awdlCoexZeroPadTrimmed, 32);
         root->setProperty("ITLAWDLCoexMultiState", awdlCoexMultiState);
         root->setProperty("ITLAWDLCoexPhyResult", awdlCoexPhyResult, 32);
         root->setProperty("ITLAWDLCoexMultiBindResult", awdlCoexMultiBindResult, 32);
@@ -8763,8 +8765,16 @@ iwx_rx_frame(struct iwx_softc *sc, mbuf_t m, int chanidx,
             ++(unsigned(chanidx) == awdlCoexChannel ? awdlCoexActionOnChannel : awdlCoexActionOffChannel);
 #if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
             // The listener's frames come without the FCS; the hand-off expects four bytes after the
-            // frame, as from monitor mode, so a copy gets them.
-            const size_t coexLen = mbuf_len(m);
+            // frame, as from monitor mode, so a copy gets them. Some setups also pad the frame with zeros
+            // after its last TLV; that padding is cut, so the frame parses and is handed off as sent.
+            size_t coexLen = mbuf_len(m);
+            if (awdlCoexRx && !mbuf_next(m)) {
+                const size_t unpadded = ItlAWDL::trimZeroPadding(cf, coexLen);
+                if (unpadded != coexLen) {
+                    coexLen = unpadded;
+                    ++awdlCoexZeroPadTrimmed;
+                }
+            }
             ItlAWDL::ActionFrame coexAction;
             if (awdlCoexRx && !mbuf_next(m) &&
                 ItlAWDL::parseAction(cf, coexLen, &coexAction) == ItlAWDL::ParseResult::Valid) {

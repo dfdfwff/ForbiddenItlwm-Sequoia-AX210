@@ -179,6 +179,66 @@ static void checkParser()
         const auto result = parseAction(bytes.data()+1, n, &output);
         if (result != ParseResult::Valid)
             assert(memcmp(&output, &untouched, sizeof(output)) == 0);
+        // The padding trim never grows a frame, removes only zero bytes, and only returns a shorter
+        // length that parses.
+        const size_t trimmed = trimZeroPadding(bytes.data()+1, n);
+        assert(trimmed <= n);
+        if (trimmed != n) {
+            assert(trimmed > 40 && parseAction(bytes.data()+1, trimmed, &output) == ParseResult::Valid);
+            for (size_t i = trimmed; i < n; ++i)
+                assert(bytes[1+i] == 0);
+        }
+    }
+}
+
+// Issue #6: listener frames with zero padding after the last TLV.
+static void checkZeroPadding()
+{
+    using namespace ItlAWDL;
+    ActionFrame decoded;
+    const auto frame = syncFrame();
+    // As reported: 8 zero bytes after the last TLV. Malformed as given, cut back to the frame.
+    auto padded = frame;
+    padded.insert(padded.end(), 8, 0);
+    assert(parseAction(padded.data(), padded.size(), &decoded) == ParseResult::Malformed);
+    assert(trimZeroPadding(padded.data(), padded.size()) == frame.size());
+    assert(parseAction(padded.data(), frame.size(), &decoded) == ParseResult::Valid);
+    assert(decoded.hasSync && decoded.masterChannel == 149 && decoded.awPeriod == 16);
+    // Any padding length: if it already parses (whole empty TLVs), it's left alone; otherwise it's cut.
+    for (size_t pad = 1; pad <= 32; ++pad) {
+        auto f = frame;
+        f.insert(f.end(), pad, 0);
+        const size_t trimmed = trimZeroPadding(f.data(), f.size());
+        if (parseAction(f.data(), f.size(), &decoded) == ParseResult::Valid)
+            assert(trimmed == f.size());
+        else
+            assert(trimmed == frame.size());
+    }
+    // A last TLV whose own value ends in zeros is kept whole: only the padding after it goes.
+    auto zeroTail = frame;
+    zeroTail.insert(zeroTail.end(), {0x10, 3, 0, 0x55, 0, 0});
+    const size_t unpadded = zeroTail.size();
+    zeroTail.insert(zeroTail.end(), 8, 0);
+    assert(trimZeroPadding(zeroTail.data(), zeroTail.size()) == unpadded);
+    // Left alone: a valid frame, a non-zero trailer (an FCS), a non-zero byte inside the padding, a
+    // header with only padding, a frame that isn't AWDL, a null pointer, and every shorter length.
+    assert(trimZeroPadding(frame.data(), frame.size()) == frame.size());
+    auto fcs = frame;
+    fcs.insert(fcs.end(), {0x12, 0x34, 0x56, 0x78});
+    assert(trimZeroPadding(fcs.data(), fcs.size()) == fcs.size());
+    auto dirty = padded;
+    dirty[frame.size()+5] = 1;
+    assert(trimZeroPadding(dirty.data(), dirty.size()) == dirty.size());
+    std::vector<uint8_t> header(frame.begin(), frame.begin()+40);
+    header.insert(header.end(), 8, 0);
+    assert(trimZeroPadding(header.data(), header.size()) == header.size());
+    auto other = padded;
+    other[16] = 0x02;
+    assert(trimZeroPadding(other.data(), other.size()) == other.size());
+    assert(trimZeroPadding(nullptr, 64) == 64);
+    for (size_t n = 0; n <= padded.size(); ++n) {
+        const size_t trimmed = trimZeroPadding(padded.data(), n);
+        assert(trimmed == n || (n > frame.size() && trimmed == frame.size()));
     }
 }
 
@@ -244,6 +304,7 @@ int main()
     checkInactiveState();
     checkTemplate();
     checkParser();
+    checkZeroPadding();
     checkManagementOwnership();
     puts("AWDL state, template, parser and 25000 fuzz cases: passed");
 }

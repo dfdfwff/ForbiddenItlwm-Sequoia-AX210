@@ -88,6 +88,35 @@ inline ParseResult parseAction(const uint8_t *frame, size_t length, ActionFrame 
     return ParseResult::Valid;
 }
 
+// Some setups deliver the listener's AWDL action frames with zero padding after the last TLV: 8 bytes
+// in every frame on an AX211 8086:51F1 (ThinkPad E16 Gen 3) with an iPhone 16 Pro, issue #6.
+// parseAction reads the zeros as empty type-0 TLVs, and the leftover bytes make the frame Malformed.
+// This returns the length up to the end of the last TLV that isn't an empty type-0 one, but only when
+// the frame doesn't parse as given, every byte after that point is zero, and the shorter frame parses.
+// Otherwise it returns length unchanged. It walks the TLVs exactly as parseAction does, and never
+// removes anything but zero bytes. Approach and diagnosis by keenerdavid18 (issue #6).
+inline size_t trimZeroPadding(const uint8_t *frame, size_t length)
+{
+    ActionFrame decoded;
+    if (!frame || length <= 40 || parseAction(frame, length, &decoded) != ParseResult::Malformed)
+        return length;
+    size_t offset = 40, end = 40;
+    while (length-offset >= 3) {
+        const size_t count = read16(frame+offset+1);
+        if (count > length-offset-3)
+            break;
+        if (frame[offset] != 0 || count != 0)
+            end = offset+3+count;
+        offset += 3+count;
+    }
+    if (end == 40)
+        return length;
+    for (size_t i = end; i < length; ++i)
+        if (frame[i] != 0)
+            return length;
+    return parseAction(frame, end, &decoded) == ParseResult::Valid ? end : length;
+}
+
 // Captured monitor frames can include FCS; the caller must state the actual
 // hardware format. Do not heuristically trim bytes from malformed payloads.
 inline ParseResult parseCapturedAction(const uint8_t *frame, size_t capturedLength,
