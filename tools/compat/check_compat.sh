@@ -140,10 +140,10 @@ describe_firmware() { # the firmware the Wi-Fi driver loaded says which radio is
         iwlwifi-so-a0-gf-a0-*)  CARD_TIER=tested;      TEXT="AX211. The tested card.";;
         iwlwifi-ty-a0-gf-a0-*)  CARD_TIER=likely;      TEXT="AX210. Same family and firmware generation as the tested AX211; untested.";;
         iwlwifi-so-a0-gf4-a0-*) CARD_TIER=likely;      TEXT="AX411. Same family; its firmware also runs two radios at once (CDB), a code path never run here.";;
-        iwlwifi-so-a0-hr-b0-*)  CARD_TIER=likely;      TEXT="Wi-Fi 6 HR radio (AX201/AX203 class) on an Alder Lake or newer platform. Same family as AX211; untested.";;
+        iwlwifi-so-a0-hr-b0-*)  CARD_TIER=likely;      TEXT="Wi-Fi 6 HR radio (AX201/AX203 class) on an Alder Lake or newer platform. Same family as AX211. Users report an AX201 working on Tahoe 26.7.1.";;
         iwlwifi-so-a0-jf-b0-*)  CARD_TIER=likely;      TEXT="Wi-Fi 5 JF radio (9560/9462/9461 class) on an Alder Lake or newer platform. Same family; untested. 9461/9462 have one antenna.";;
         iwlwifi-cc-a0-*)        CARD_TIER=needs-fixes; TEXT="AX200. Older family (22000): those code paths exist but have never run with AirDrop.";;
-        iwlwifi-Qu*-hr-*)       CARD_TIER=needs-fixes; TEXT="Wi-Fi 6 HR radio (AX201, or the one-antenna AX101) on Ice, Comet or Tiger Lake. Older family (22000), untested.";;
+        iwlwifi-Qu*-hr-*)       CARD_TIER=needs-fixes; TEXT="Wi-Fi 6 HR radio (AX201, or the one-antenna AX101) on Ice, Comet or Tiger Lake. Older family (22000). Users report an AX201 working on Tahoe 26.7.1, platform not stated.";;
         iwlwifi-Qu*-jf-*)       CARD_TIER=needs-fixes; TEXT="Wi-Fi 5 JF radio (9560, or one-antenna 9461/9462) on Ice or Comet Lake. Older family (22000), untested.";;
         iwlwifi-SoSnj-*|iwlwifi-ma-*|iwlwifi-QuQnj-*)
                                 CARD_TIER=unsupported; TEXT="Needs firmware ($1) that this driver doesn't bundle, so even normal Wi-Fi won't start.";;

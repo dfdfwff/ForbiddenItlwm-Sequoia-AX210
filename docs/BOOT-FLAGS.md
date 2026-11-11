@@ -1,6 +1,6 @@
 # Boot flags
 
-AirDrop is off unless its flags are set, so with none of them ForbiddenItlwm behaves like AirportItlwm. The beta needs a long list of flags. They are the exact set used for every tested result. Simpler defaults are planned.
+AirDrop is off unless its flags are set, so with none of them ForbiddenItlwm behaves like AirportItlwm. The beta needs a long list of flags. They are the exact set used for every tested result. The Tahoe and Sequoia builds use the same flags. Simpler defaults are planned.
 
 ## The tested set
 

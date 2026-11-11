@@ -1,6 +1,6 @@
 # Installing ForbiddenItlwm
 
-This beta has been tested on one machine: an HP Envy x360 13-bf with an Intel AX211, on macOS 26.7.1 (25G241). 26.7.2 (25G332) and 26.7.3 (25G342) were verified offline. The Sequoia build (15.8.x) was verified offline only and hasn't been booted on any hardware yet. It was booted with OpenCore 1.0.8, with an iPhone 11. The details are in [TESTED-HARDWARE.md](TESTED-HARDWARE.md). Read the whole page before you start.
+This beta has been tested on one hackintosh: an HP Envy x360 13-bf with an Intel AX211, on macOS 26.7.1 (25G241), booted with OpenCore 1.0.8, with an iPhone 11. 26.7.2 (25G332) and 26.7.3 (25G342) were verified offline. The Sequoia build (15.8.x) was verified offline only and hasn't been booted on any hardware yet. The details are in [TESTED-HARDWARE.md](TESTED-HARDWARE.md). Read the whole page before you start.
 
 ## Before you start
 
@@ -9,6 +9,7 @@ This beta has been tested on one machine: an HP Envy x360 13-bf with an Intel AX
   - **Sequoia:** `24H23` (15.8) or `24H241` (15.8.3) were checked offline; `24H32` (15.8.1) and `24H232` (15.8.2) are expected to work. Use the Sequoia kexts.
   - On any other build the driver keeps AirDrop off and works as plain Wi-Fi.
 - **Use the kexts for your macOS version.** ForbiddenItlwm and BTLEAdvFixup are built separately for Tahoe and for Sequoia. A ForbiddenItlwm built for the other version refuses to start, and BTLEAdvFixup's patterns won't match.
+- **Revert OCLP Wi-Fi root patches.** ForbiddenItlwm uses the Wi-Fi stack that ships with macOS. If you applied OpenCore Legacy Patcher's "Modern Wireless" root patches for an older AirportItlwm, revert them first.
 - **Run the checker:** `bash tools/compat/check_compat.sh`. It tells you whether your card and Bluetooth are likely to work.
 - **Use a USB stick.** Copy your working EFI folder to a USB stick and make every change there. Your internal EFI stays as it is, so if anything goes wrong you just boot without the stick.
 - **Know the rollback:** boot from your internal EFI, or put the original `AirportItlwm.kext` and `config.plist` back on the stick.
@@ -103,10 +104,10 @@ All of this goes on the **USB stick's** EFI.
 3. Wait a minute, then check that the driver and its AirDrop listener are running:
 
    ```bash
-   ioreg -l -w0 | grep -E '"ItlwmAWDLInterfaceBuild"|"ITLAWDLCoex(Added|Channel|CountryLearned)"'
+   ioreg -l -w0 | grep -E '"ItlwmAWDL(InterfaceBuild|BuildCheck)"|"ITLAWDLCoex(Added|Channel|CountryLearned)"'
    ```
 
-   You should see `forbidden-0.3.0-beta1` (`forbidden-0.3.0-beta1-sequoia` on Sequoia), `Added` Yes, `Channel` 149 and `CountryLearned` Yes. `Channel` 6 means the firmware hasn't opened channel 149: see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+   You should see `forbidden-0.3.0-beta1` (`forbidden-0.3.0-beta1-sequoia` on Sequoia), `BuildCheck` `verified` (or `expected: …` on 15.8.1 and 15.8.2), `Added` Yes, `Channel` 149 and `CountryLearned` Yes. `Channel` 6 means the firmware hasn't opened channel 149: see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 4. Or run `bash tools/compat/check_compat.sh` again. It now also reads the listener's state.
 5. Turn on AirDrop on both devices. Contacts Only works when the iPhone and the Mac share an Apple Account or know each other as contacts. Otherwise use Everyone for 10 Minutes.

@@ -12,13 +12,13 @@ It supports macOS Tahoe 26.7.x and, from 0.3.0, macOS Sequoia 15.8.x. **Each mac
 
 ## What works
 
-Measured on the [test machine](docs/TESTED-HARDWARE.md) (HP Envy x360 13-bf with an AX211, macOS 26.7.1, iPhone 11), sending 100 MB files to and from an iPhone, with the Mac connected to normal 5 GHz Wi-Fi:
+Measured on the [test machine](docs/TESTED-HARDWARE.md) (HP Envy x360 13-bf with an AX211, macOS 26.7.1, iPhone 11), sending 100 MB files to and from an iPhone, with the hackintosh connected to normal 5 GHz Wi-Fi:
 
 | | Result |
 | --- | --- |
 | Mac → iPhone | Works. About 22 MB/s typical, 16 to 28 MB/s. Connects in 1 to 3.6 s |
 | iPhone → Mac | Works. About 20 MB/s typical, 15 to 30 MB/s. A cold connect usually takes 3 to 10 s. Now and then one takes longer or fails, and a retry works |
-| Normal Wi-Fi at the same time | Works. The Mac stays connected throughout |
+| Normal Wi-Fi at the same time | Works. The hackintosh stays connected throughout |
 | Large transfers | No stalls in 21 transfers in a row on the release build |
 
 **The speed depends on the iPhone's own Wi-Fi.** AirDrop gets the time the iPhone's radio gives it.
@@ -28,7 +28,7 @@ Measured on the [test machine](docs/TESTED-HARDWARE.md) (HP Envy x360 13-bf with
 
 ### Other Continuity features
 
-Tested with the same Mac and iPhone:
+Tested with the same hackintosh and iPhone, on Tahoe 26.7.1:
 
 | Feature | State |
 | --- | --- |
@@ -38,7 +38,7 @@ Tested with the same Mac and iPhone:
 | Instant Hotspot | Doesn't work yet |
 | Continuity Camera | Doesn't work yet |
 | iPhone Mirroring | Doesn't work. Probably can't without a T2 chip or Apple silicon |
-| Sidecar | Untested/Unconfirmed |
+| Sidecar | Not tried yet |
 
 ## Requirements
 
@@ -53,9 +53,10 @@ Tested with the same Mac and iPhone:
   | Any other build | | AirDrop stays off and normal Wi-Fi works |
 
   The driver checks the build itself when it starts. On a build it doesn't know, it keeps AirDrop off instead of risking a kernel panic. BTLEAdvFixup's patterns are exact bytes from one `bluetoothd` per macOS version (26.7.1 and 15.8.3). On other builds, `tools/compat/check_compat.sh` shows whether they still match.
-- **An Intel Wi-Fi card that AirportItlwm supports.** Only the AX211 is tested. The AX210 and AX411, and CNVi radios on Alder Lake and newer, are close relatives and may work. See the [compatibility table](tools/compat/README.md).
+- **An Intel Wi-Fi card that AirportItlwm supports.** Only the AX211 is tested by the project. Users have reported the Tahoe kext working on an AX201 and on other AX211 machines on 26.7.1 (see [user reports](docs/TESTED-HARDWARE.md#user-reports)). The AX210 and AX411, and CNVi radios on Alder Lake and newer, are close relatives and may work. See the [compatibility table](tools/compat/README.md).
 - **An Intel Bluetooth controller** with [IntelBluetoothFirmware](https://github.com/OpenIntelWireless/IntelBluetoothFirmware) and BlueToolFixup ([BrcmPatchRAM](https://github.com/acidanthera/BrcmPatchRAM)), plus [Lilu](https://github.com/acidanthera/Lilu) and this project's **BTLEAdvFixup**. AirDrop finds devices over Bluetooth LE before it uses Wi-Fi.
 - **OpenCore.**
+- **macOS's own Wi-Fi stack.** Like laobamac's native AirportItlwm builds it's based on, ForbiddenItlwm uses the IO80211Family that ships with macOS. If you applied OpenCore Legacy Patcher's "Modern Wireless" root patches for an older AirportItlwm, revert them first: they replace the Wi-Fi stack the driver was checked against.
 - **A nearby Wi-Fi network that advertises a country, in a country that allows channel 149.** Without it, AirDrop falls back to channel 6, which is very slow. See [Channel 149 and your country](#channel-149-and-your-country).
 
 ## Channel 149 and your country
@@ -67,7 +68,7 @@ AirDrop is fast only on channel 149 (5 GHz, 80 MHz). The Wi-Fi card's firmware d
 - **The driver never overrides the firmware's decision,** and there's no country setting to change it. `itlwm_cc` only changes the code macOS displays.
 - **The checker tells you:** `tools/compat/check_compat.sh` warns about these countries, and shows whether the firmware actually opened channel 149.
 
-## Will it work on my Mac?
+## Will it work on my hackintosh?
 
 Run the read-only checker first. It changes nothing and sends nothing anywhere:
 
@@ -102,12 +103,24 @@ See **[docs/INSTALL.md](docs/INSTALL.md)**. In short:
 ## Known limitations
 
 - **Few macOS builds.** Tahoe 26.7.1 to 26.7.3 and Sequoia 15.8 to 15.8.3. On any other build the driver keeps AirDrop off. Everything except 26.7.1 still needs reports from real hardware, and Sequoia hasn't been booted at all yet.
-- **One tested card.** Everything except the AX211 is untested.
+- **One card tested by the project.** Users have reported the AX201 and other AX211 machines working on Tahoe 26.7.1. Everything else is untested.
 - **Cold iPhone → Mac connects are slow,** usually 3 to 10 s and sometimes longer. The time goes into the iPhone finding the Mac before any data moves. This is the main open problem.
 - **No sleep and wake testing** beyond normal use on the test machine.
 - **Channel 6 fallback is very slow.** It happens when the firmware hasn't learned a country that allows channel 149.
 - **iPhone only.** iPads and other Macs are expected to work the same way, but haven't been tried.
 - **Boot flags.** The beta still runs on a long list of them. Simpler defaults are planned.
+
+## Planned
+
+These are plans, not promises. There are no dates, and the order isn't fixed.
+
+- **Instant Hotspot:** joining the iPhone's hotspot from the Wi-Fi menu without typing the password.
+- **Continuity Camera:** using the iPhone as the Mac's webcam.
+- **Faster connects:** cutting the 3 to 10 s a cold iPhone → Mac transfer spends finding the Mac.
+- **macOS Sonoma 14 and Ventura 13:** separate kexts for each, like Tahoe and Sequoia. Each needs its own study of that version's Wi-Fi stack first, so support isn't certain.
+- **Fewer boot flags:** sensible defaults, so the beta doesn't need its long list of flags.
+- **BTLEAdvFixup that survives macOS updates:** patterns that tolerate small changes in `bluetoothd`, instead of exact bytes from one build.
+- **AirPlay to the hackintosh, Sidecar and Universal Control:** these also use Apple's peer-to-peer links. None has been tried yet.
 
 ## Disclaimer
 
@@ -122,7 +135,7 @@ See **[docs/INSTALL.md](docs/INSTALL.md)**. In short:
 - the test tools
 - this documentation
 
-The project's maintainer directed the work, decided what to test, and ran every hardware test on real devices. All the results reported here come from those tests. Even so, AI-written code can contain mistakes that testing on one machine won't catch. Treat it accordingly, and please report anything that looks wrong.
+The project's maintainer directed the work, decided what to test, and ran every hardware test on real devices. All the hardware results the project reports come from those tests; reports from other users are marked as such, and the Sequoia build has only been checked offline so far. Even so, AI-written code can contain mistakes that testing on one machine won't catch. Treat it accordingly, and please report anything that looks wrong.
 
 ## Credits
 

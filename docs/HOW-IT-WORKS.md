@@ -2,7 +2,7 @@
 
 AirDrop finds a device over Bluetooth LE, then moves the data over **AWDL** (Apple Wireless Direct Link), a peer-to-peer Wi-Fi link. On a real Mac, Apple's Wi-Fi stack runs most of AWDL itself: elections, timing, service discovery and the data path. It needs a driver that can create an AWDL interface and move its frames on the right channel at the right time.
 
-ForbiddenItlwm makes macOS Tahoe's native stack (IO80211Family with Skywalk) believe it has a capable AWDL radio, and does the radio work Intel firmware doesn't do for it. The approach follows FranciumOS-org/AirPort_RTW89, which did this on a Realtek card with the older Wi-Fi stack.
+ForbiddenItlwm makes macOS's native stack (IO80211Family with Skywalk, on Tahoe and on Sequoia) believe it has a capable AWDL radio, and does the radio work Intel firmware doesn't do for it. The approach follows FranciumOS-org/AirPort_RTW89, which did this on a Realtek card with the older Wi-Fi stack.
 
 ## The pieces
 
@@ -23,7 +23,7 @@ ForbiddenItlwm makes macOS Tahoe's native stack (IO80211Family with Skywalk) bel
 ### 1. The interface: `awdl0`
 
 - `wifip2pd` asks for an AWDL interface only if the card reports the AWDL capability. `-itlawdliface` sets it.
-- `AirportItlwm::createVirtualInterface` then builds `ItlAWDLInterface`, a concrete subclass of Tahoe's `IO80211VirtualInterface` and `IO80211AWDLProtocol`. Apple's classes are abstract, so the subclass has to match Apple's virtual table slot for slot. `tools/abi/audit_vtable.py` checks all 568 slots against 25G241's table. This is why the driver is tied to one macOS build.
+- `AirportItlwm::createVirtualInterface` then builds `ItlAWDLInterface`, a concrete subclass of Apple's `IO80211VirtualInterface` and `IO80211AWDLProtocol`. Apple's classes are abstract, so the subclass has to match Apple's virtual table slot for slot. `tools/abi/audit_vtable.py` checks all 568 slots against Tahoe 25G241's table, and all 563 against Sequoia 24H241's. This is why each macOS version needs its own build, and why each build is checked against specific macOS builds.
 - Setup creates the Skywalk packet pools and queues and registers `awdl0`.
 - Apple's peer manager then pushes its settings and its frame template (the "MI" frame with the Mac's name and services) through `setAWDL_*` calls. The driver keeps copies.
 
@@ -74,13 +74,13 @@ Each macOS version has its own build (`tools/build.py --target tahoe|sequoia`), 
   - Every kernel symbol the driver imports exists.
 - **Apple's `IO80211AWDLProtocol` table, read at runtime,** has the expected functions at anchor slots spread across it, its own pure methods where expected, and ends where expected (568 slots on Tahoe, 563 on Sequoia). This catches a changed table on any build.
 
+When either fails, the driver behaves like plain AirportItlwm. `-itlawdlanybuild` skips the first check, never the second. The result is published as `ItlwmAWDLBuildCheck`.
+
 **Sequoia differs from Tahoe in a few places the driver depends on.** The 15.8 and 15.8.3 Kernel Debug Kits (identical tables) showed:
 - the same 63 AWDL protocol methods in the same order, with about ten base-class methods added or removed before them, and objects 16 bytes smaller
 - `setMacAddress` pure in `IO80211SkywalkInterface` instead of `IO80211VirtualInterface`
 - `IO80211Buffer` without virtual methods: the driver calls its exported functions directly on Sequoia
 - the same Skywalk packet, queue and registration layouts, the same RX metadata layout (RSSI at offset 0x2c) and the same out-of-band request layout
-
-When either fails, the driver behaves like plain AirportItlwm. `-itlawdlanybuild` skips the first check, never the second. The result is published as `ItlwmAWDLBuildCheck`.
 
 ### 8. Link quality, and why it matters beyond AirDrop
 

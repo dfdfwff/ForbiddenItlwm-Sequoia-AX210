@@ -1,8 +1,8 @@
 # Where it was tested
 
-Every result in these docs comes from this one setup. Anything else is untested.
+Every result the project measured comes from this one setup. Reports from other users are listed separately under [User reports](#user-reports). Anything else is untested.
 
-## The Mac
+## The hackintosh
 
 | | |
 | --- | --- |
@@ -20,7 +20,7 @@ Kexts used with ForbiddenItlwm:
 
 | Kext | Version |
 | --- | --- |
-| ForbiddenItlwm | 0.1.0-beta1 and 0.2.0-beta1 (Tahoe) |
+| ForbiddenItlwm | 0.1.0-beta1 and 0.2.0-beta1 (Tahoe). 0.3.0-beta1 hasn't been booted yet |
 | BTLEAdvFixup | 0.8.0 |
 | Lilu | 1.7.2 |
 | IntelBluetoothFirmware | 2.5.1 |
@@ -40,7 +40,7 @@ The laptop also loads kexts for its own hardware (graphics, audio, touchscreen, 
 
 ## Conditions
 
-- **The Mac's Wi-Fi:** connected to a normal 5 GHz network on channel 36 at 80 MHz for the coexistence results. AirDrop ran on channel 149 at 80 MHz beside it.
+- **The hackintosh's Wi-Fi:** connected to a normal 5 GHz network on channel 36 at 80 MHz for the coexistence results. AirDrop ran on channel 149 at 80 MHz beside it.
 - **The country:** the firmware learned it from nearby networks.
 - **The iPhone's Wi-Fi:** tested in three states, which change the speed (see the README):
   - not associated
@@ -49,9 +49,20 @@ The laptop also loads kexts for its own hardware (graphics, audio, touchscreen, 
 - **Transfers:** mostly 100 MB files, plus iPhone sysdiagnose files of up to about 500 MB, in both directions.
 - **When:** November 2026.
 
+## User reports
+
+Users on Reddit have reported the Tahoe kext working on macOS 26.7.1 with these cards:
+
+| Card | Reported on |
+| --- | --- |
+| Intel AX201 | macOS 26.7.1 |
+| Intel AX211, on other machines than the test laptop | macOS 26.7.1 |
+
+The project hasn't verified these reports. The platforms, and which features were tried, vary between them.
+
 ## Not tested
 
-- Other Intel cards, and other laptops with an AX211
+- Other Intel cards, and other laptops with an AX211, beyond the user reports above
 - Other macOS builds, including 26.7.2 and 26.7.3
 - **macOS Sequoia: the Sequoia build hasn't been booted on any hardware.** It was verified offline from the 15.8 and 15.8.3 Kernel Debug Kits
 - iPads, other iPhones, other Macs

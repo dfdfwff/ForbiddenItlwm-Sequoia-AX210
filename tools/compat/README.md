@@ -49,6 +49,8 @@ Two things stop it working whatever the card:
 
 A good card can still be slow. The firmware opens channel 149, the fast mode, only after a nearby network tells it which country it is in. Until then the driver falls back to channel 6, which is very slow. Most home and office routers advertise their country. In the project's tests, an iPhone's Personal Hotspot switched on nearby (without joining it) also taught the firmware. The driver never overrides the firmware's choice, and setting `itlwm_cc` doesn't help: it only changes the code macOS displays.
 
+**User reports:** users have reported the Tahoe kext working on macOS 26.7.1 with an AX201 and with an AX211 in other machines. These reports aren't verified, and the table above is unchanged. See [docs/TESTED-HARDWARE.md](../../docs/TESTED-HARDWARE.md#user-reports).
+
 On a CNVi laptop (Alder Lake and newer) the PCI ID alone can't tell an AX211 from an AX201 or a 9560. Load ForbiddenItlwm (or AirportItlwm) and run the check again: the firmware it loads names the radio.
 
 ## 2. Collect
