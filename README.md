@@ -35,7 +35,8 @@ Tested with the same Mac and iPhone:
 | Handoff | Works in both directions |
 | Universal Clipboard | Works |
 | Instant Hotspot | Doesn't work yet |
-| Continuity Camera | Doesn't work. Probably can't without a T2 chip or Apple silicon |
+| Continuity Camera | Doesn't work yet |
+| iPhone Mirroring | Doesn't work. Probably can't without a T2 chip or Apple silicon |
 
 ## Requirements
 
