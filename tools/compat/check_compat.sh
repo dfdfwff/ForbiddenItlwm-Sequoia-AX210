@@ -9,7 +9,8 @@
 # Usage: bash check_compat.sh
 #
 # The verdict is an estimate. Only the AX211 (firmware so-a0-gf-a0-68) on macOS 26.7.1 (25G241) has
-# been tested. Everything else is predicted from the firmware's capabilities and the driver's code.
+# been tested on hardware; 26.7.2 (25G332) and 26.7.3 (25G342) were verified offline. Everything else
+# is predicted from the firmware's capabilities and the driver's code.
 
 set -u
 export LC_ALL=C
@@ -49,11 +50,17 @@ if [ "$ARCH" != "x86_64" ]; then
     BLOCKERS=$((BLOCKERS + 1))
 fi
 OS_MAJOR=${OS_VER%%.*}
+# Builds the driver allows AirDrop on (ForbiddenItlwm/AWDLBuildGuard.cpp): 25G241 tested on
+# hardware, 25G332 and 25G342 verified offline from Apple's Kernel Debug Kits.
+OFFLINE_BUILDS="25G332 25G342"
 if [ "$OS_BUILD" = "$TESTED_BUILD" ]; then
     pass "Same build as the tested one ($TESTED_VERSION, $TESTED_BUILD)."
+elif [ -n "$OS_BUILD" ] && echo " $OFFLINE_BUILDS " | grep -q " $OS_BUILD "; then
+    pass "macOS $OS_VER ($OS_BUILD): supported. Its Wi-Fi stack was checked against $TESTED_BUILD and is the same where"
+    pass "the driver depends on it. See the bluetoothd pattern check below for the Bluetooth side. Please report your result."
 elif [ "${OS_MAJOR:-0}" = "26" ]; then
-    warn "macOS 26 but not build $TESTED_BUILD. The driver hooks into macOS's Wi-Fi framework and bluetoothd at"
-    warn "offsets checked only on $TESTED_BUILD. Expect AirDrop not to start until they are re-checked for $OS_BUILD."
+    warn "macOS 26 but build $OS_BUILD isn't verified yet. The driver keeps AirDrop off on it (normal Wi-Fi still works),"
+    warn "unless you add -itlawdlanybuild, which risks a kernel panic. Please report this build so it can be checked."
     BLOCKERS=$((BLOCKERS + 1))
 else
     fail "The AirDrop code is only built for macOS 26 (Tahoe), tested on $TESTED_VERSION ($TESTED_BUILD)."
@@ -224,6 +231,34 @@ LILU=$(kext_version as.vit9696.Lilu)
 [ -n "$LILU" ] && pass "Lilu $LILU is loaded." || warn "Lilu isn't loaded (BTLEAdvFixup is a Lilu plugin)."
 if [ -n "$BTLEADV" ]; then pass "BTLEAdvFixup $BTLEADV is loaded."; else info "BTLEAdvFixup isn't loaded. It's part of the AirDrop package."; fi
 [ -n "$IBTPATCH" ] && [ -n "$BTLEADV" ] && warn "IntelBTPatcher and BTLEAdvFixup are both loaded. The tested setup disables IntelBTPatcher, as both hook the same USB requests."
+# BTLEAdvFixup patches four places in bluetoothd. Its patterns are exact bytes from macOS 26.7.1
+# (25G241), so they only match a bluetoothd with the same build. This reads /usr/sbin/bluetoothd
+# (read-only) and counts each site in its original form and, when BTLEAdvFixup is already running and
+# the page cache returns the patched page, in its patched form. Generated from
+# BTLEAdvFixup/BTLEAdvPatches.hpp; keep the two in step.
+BTD=/usr/sbin/bluetoothd
+if [ -r "$BTD" ] && command -v perl >/dev/null 2>&1; then
+    BT_PATTERNS=$(perl -0777 -ne '
+        sub n { my $hex = shift; my $re = join "", map { "\\x$_" } ($hex =~ /(..)/g); my $c = () = /$re/sg; return $c; }
+        my @advertising = (n("84c00f8438010000e80878f8ff488b084889c7ff91180900004189c6"), n("84c0909090909090e80878f8ff488b084889c7b801000000904189c6"));
+        my @scanning = (n("84c00f8438010000e8b27af8ff488b084889c7ff91a80900004189c6"), n("84c0909090909090e8b27af8ff488b084889c7b801000000904189c6"));
+        my @randomAddress = (n("83b83403000003772a31ffe83e6bceff"), n("83b83403000003772a90909090909090"));
+        my @extendedConnection = (n("0fb6bd5effffffe8cb9dcfff"), n("bf010000009090e8cb9dcfff"));
+        for my $p (["advertising", @advertising], ["scanning", @scanning], ["randomAddress", @randomAddress], ["extendedConnection", @extendedConnection]) {
+            my ($name, $orig, $patched) = @$p;
+            printf "%s=%d(%s) ", $name, $orig + $patched, $patched ? "patched" : "original";
+        }' "$BTD" 2>/dev/null)
+    BT_MATCH_OK=1
+    for kv in $BT_PATTERNS; do v=${kv#*=}; [ "${v%%(*}" = 1 ] || BT_MATCH_OK=0; done
+    if [ -z "$BT_PATTERNS" ]; then
+        info "Couldn't read bluetoothd to check BTLEAdvFixup's patterns."
+    elif [ "$BT_MATCH_OK" = 1 ]; then
+        pass "BTLEAdvFixup's patterns each match this macOS's bluetoothd once ($BT_PATTERNS)."
+    else
+        warn "BTLEAdvFixup's patterns don't all match this bluetoothd ($BT_PATTERNS). Each should be 1."
+        warn "Without them the Mac can't advertise AirDrop over Bluetooth, so iPhones won't list it. Please report this build."
+    fi
+fi
 BT_STATE=$(system_profiler SPBluetoothDataType 2>/dev/null | awk -F': ' '/^ *State:/ { print $2; exit }')
 [ -n "$BT_STATE" ] && info "Bluetooth state: $BT_STATE"
 

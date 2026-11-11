@@ -35,7 +35,7 @@
  */
 
 #ifdef AIRPORT_WCL
-#include "../../AirportItlwm/WCL/WCL.hpp"
+#include "../../ForbiddenItlwm/WCL/WCL.hpp"
 #endif
 #include "ItlIwn.hpp"
 #include <linux/types.h>

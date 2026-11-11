@@ -551,6 +551,7 @@ getMCS_INDEX_SET(struct apple80211_mcs_index_set_data *ad)
     return 6;
 }
 
+extern bool itlAWDLBuildAllowed();
 // -itlawdlcaps: answer the native stack's HT and VHT capability requests. Without them it
 // assumes one HT stream and no VHT, and advertises that to AWDL peers in TLV 7 and leaves out
 // TLV 17, so a peer sends to us at 20 MHz on one stream. The values are the AX211's own.
@@ -559,7 +560,7 @@ static bool itlAWDLAdvertiseCaps()
     static int cached = -1;
     if (cached < 0) {
         int dummy = 0;
-        cached = PE_parse_boot_argn("-itlawdlcaps", &dummy, sizeof(dummy)) ? 1 : 0;
+        cached = itlAWDLBuildAllowed() && PE_parse_boot_argn("-itlawdlcaps", &dummy, sizeof(dummy)) ? 1 : 0;
     }
     return cached == 1;
 }

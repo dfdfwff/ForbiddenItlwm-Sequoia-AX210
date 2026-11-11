@@ -77,10 +77,16 @@ struct SequoiaLqmUpdate {
 static_assert(sizeof(SequoiaLqmUpdate) == 0x150, "Sequoia LQM size");
 static_assert(offsetof(SequoiaLqmUpdate, rssi) == 4, "Sequoia LQM RSSI offset");
 
-// WCLNetManager::handleLqmUpdate consumes this 0x1dc snapshot.
-// Only beacon reception is valid; unavailable radio measurements stay invalid.
+// WCLNetManager::handleLqmUpdate consumes this 0x1dc snapshot. Read from its 25G241 code: byte 0 is
+// the RSSI valid flag and the int32 at 4 the RSSI in dBm, which it stores as the link's current RSSI.
+// Without them WCL sees 0 dBm, airportd rates en0's LinkQuality "off" (-2), and apsd then treats Wi-Fi
+// as unusable, so push, iMessage and other Apple services can't connect. Beacon reception is the
+// only other part filled; the remaining radio measurements stay invalid.
 struct LqmBeaconUpdate {
-    uint8_t prefix[0x28];
+    uint8_t rssiValid;
+    uint8_t reserved0[3];
+    int32_t rssi;
+    uint8_t prefix[0x28 - 8];
     uint32_t receivedDelta;
     uint32_t scheduledDelta;
     uint8_t beaconValid;
@@ -91,6 +97,7 @@ struct LqmBeaconUpdate {
 };
 static_assert(sizeof(LqmBeaconUpdate) == 0x1dc, "WCL LQM update size");
 static_assert(offsetof(LqmBeaconUpdate, receivedDelta) == 0x28, "WCL beacon delta offset");
+static_assert(offsetof(LqmBeaconUpdate, rssi) == 4, "WCL LQM RSSI offset");
 static_assert(offsetof(LqmBeaconUpdate, beaconValid) == 0x30, "WCL beacon valid offset");
 static_assert(offsetof(LqmBeaconUpdate, snapshotValid) == 0x1d8, "WCL snapshot valid offset");
 inline bool makeBeaconUpdate(uint32_t receivedDelta, LqmBeaconUpdate &out)

@@ -107,7 +107,7 @@
  */
 
 #ifdef AIRPORT_WCL
-#include "../../AirportItlwm/WCL/WCL.hpp"
+#include "../../ForbiddenItlwm/WCL/WCL.hpp"
 #endif
 #include "ItlIwx.hpp"
 #include <linux/types.h>
@@ -5570,6 +5570,7 @@ out:
 // version, subtype (0 PSF, 3 MIF), reserved, then phy_tx_time and
 // target_tx_time, little endian, in microseconds of the sender's clock.
 #if defined(AIRPORT_WCL) && __IO80211_TARGET == __MAC_26_0
+extern bool itlAWDLBuildAllowed();
 extern IOReturn itlAWDLReceiveAction(IOEthernetController*, mbuf_t, size_t, uint32_t, int32_t);
 extern void itlAWDLObserveData(IOEthernetController*, const uint8_t*, size_t);
 extern IOReturn itlAWDLBuildSyncProbe(IOEthernetController*, mbuf_t*, uint64_t);
@@ -19917,7 +19918,7 @@ iwx_attach(struct iwx_softc *sc, struct pci_attach_args *pa)
         mccProbe = PE_parse_boot_argn("-itlmccprobe", &dummy, sizeof(dummy));
         if (mccProbe)
             timeout_set(&mccProbeTimer, mccProbeTimeout, sc);
-        awdlCoexProbe = PE_parse_boot_argn("-itlawdlcoexprobe", &dummy, sizeof(dummy)) &&
+        awdlCoexProbe = itlAWDLBuildAllowed() && PE_parse_boot_argn("-itlawdlcoexprobe", &dummy, sizeof(dummy)) &&
             !PE_parse_boot_argn("-itlawdlrx", &dummy, sizeof(dummy));
         // A new attach in the same loaded image starts with its timers allowed again.
         awdlStopping = false;
@@ -19975,7 +19976,7 @@ iwx_attach(struct iwx_softc *sc, struct pci_attach_args *pa)
             awdlCoexFilter = requestedCoexFilter;
         else if (awdlCoexData)
             awdlCoexFilter = 3; // Data needs it; see awdlCoexMacSend.
-        if (PE_parse_boot_argn("-itlawdlrx", &dummy, sizeof(dummy))) {
+        if (itlAWDLBuildAllowed() && PE_parse_boot_argn("-itlawdlrx", &dummy, sizeof(dummy))) {
             awdlRx = true;
             awdlQueueProbe = PE_parse_boot_argn("-itlawdlqueue", &dummy, sizeof(dummy));
             awdlRxChannel6 = PE_parse_boot_argn("-itlawdl6", &dummy, sizeof(dummy));

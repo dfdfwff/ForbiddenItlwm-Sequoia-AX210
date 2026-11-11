@@ -177,13 +177,15 @@ void ItlAWDLInterface::storeMasterIndication(const apple80211_awdl_oob_request *
 
 extern unsigned itlAWDLFixedChannel();
 extern unsigned itlAWDLChannelClass();
+extern bool itlAWDLBuildAllowed();
+extern const char *itlAWDLBuildStatus();
 // With -itlawdlcaps the driver reports two HT streams and VHT to macOS; our TLV 7 says the same.
 static bool itlAWDLTwoStreams()
 {
     static int cached = -1;
     if (cached < 0) {
         int dummy = 0;
-        cached = PE_parse_boot_argn("-itlawdlcaps", &dummy, sizeof(dummy)) &&
+        cached = itlAWDLBuildAllowed() && PE_parse_boot_argn("-itlawdlcaps", &dummy, sizeof(dummy)) &&
             !PE_parse_boot_argn("-itlawdlcapshtonly", &dummy, sizeof(dummy)) ? 1 : 0;
     }
     return cached == 1;
@@ -786,7 +788,7 @@ IO80211VirtualInterface *AirportItlwm::createVirtualInterface(ether_addr *addres
         int nativeUp = 0;
         if (PE_parse_boot_argn("-itlawdlnativeup", &nativeUp, sizeof(nativeUp)))
             interface->acceptNativeRequests();
-        interface->setProperty("ItlwmAWDLInterfaceBuild", "forbidden-0.1.0-beta1");
+        interface->setProperty("ItlwmAWDLInterfaceBuild", "forbidden-0.2.0-beta1");
         setProperty("ItlwmAWDLFactoryStage", "initialized");
         return interface;
     }
@@ -1185,6 +1187,10 @@ void AirportItlwm::watchdogAction(IOTimerEventSource *timer)
 {
     struct _ifnet *ifp = &fHalService->get80211Controller()->ic_ac.ac_if;
     (*ifp->if_watchdog)(ifp);
+#ifdef AIRPORT_WCL
+    if (fNetIf)
+        static_cast<AirportItlwmSkywalkInterface *>(fNetIf)->wclPostLinkQuality();
+#endif
 
     watchdogTimer->setTimeoutMS(kWatchDogTimerPeriod);
 }
@@ -1210,13 +1216,16 @@ bool AirportItlwm::init(OSDictionary *properties)
     awdlSyncEnable = true;
     fAWDLInterface = nullptr;
     int awdlBootValue = 0;
-    awdlInterfaceTest = PE_parse_boot_argn("-itlawdliface", &awdlBootValue, sizeof(awdlBootValue));
+    // AirDrop only starts on a macOS build whose Wi-Fi stack was verified (AWDLBuildGuard.cpp).
+    awdlInterfaceTest = itlAWDLBuildAllowed() &&
+        PE_parse_boot_argn("-itlawdliface", &awdlBootValue, sizeof(awdlBootValue));
+    setProperty("ItlwmAWDLBuildCheck", itlAWDLBuildStatus());
     awdlRawSamples = PE_parse_boot_argn("-itlawdlsamples", &awdlBootValue, sizeof(awdlBootValue));
     awdlExtendFrames = PE_parse_boot_argn("-itlawdlelicit", &awdlBootValue, sizeof(awdlBootValue));
     awdlCreateRequests = 0;
     awdlManagementInputEnabled = false;
     awdlManagementActive = 0;
-    setProperty("ItlwmAWDLInterfaceBuild", "forbidden-0.1.0-beta1");
+    setProperty("ItlwmAWDLInterfaceBuild", "forbidden-0.2.0-beta1");
     setProperty("ItlwmAWDLInterfaceTestEnabled", awdlInterfaceTest ? kOSBooleanTrue : kOSBooleanFalse);
     OSNumber *requests = OSNumber::withNumber(static_cast<UInt64>(0), 64);
     if (requests) {

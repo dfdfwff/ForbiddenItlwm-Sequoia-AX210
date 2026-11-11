@@ -6,7 +6,7 @@
 #include <Airport/apple80211_ioctl.h>
 #include <AWDLFrameParser.hpp>
 #include <AWDLManagementFrame.hpp>
-#include "../AirportItlwm/AWDLInactiveProtocol.hpp"
+#include "../ForbiddenItlwm/AWDLInactiveProtocol.hpp"
 
 static void checkInactiveState()
 {

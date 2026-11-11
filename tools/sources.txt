@@ -38,12 +38,12 @@ itl80211/openbsd/crypto/sha1.c
 itl80211/openbsd/crypto/cmac.c
 itl80211/openbsd/crypto/ecb_enc.c
 itl80211/openbsd/crypto/chachapoly.c
-AirportItlwm/AirportItlwmV2.cpp
+ForbiddenItlwm/AirportItlwmV2.cpp
 itl80211/openbsd/crypto/md5.c
 itl80211/openbsd/crypto/arc4.c
-AirportItlwm/AirportItlwmEthernetInterface.cpp
-AirportItlwm/AirportItlwmSkywalkInterface.cpp
-AirportItlwm/WCL/WCL.cpp
+ForbiddenItlwm/AirportItlwmEthernetInterface.cpp
+ForbiddenItlwm/AirportItlwmSkywalkInterface.cpp
+ForbiddenItlwm/WCL/WCL.cpp
 itl80211/openbsd/crypto/blf.c
 itl80211/openbsd/sys/_ifq.cpp
 itl80211/openbsd/crypto/poly1305.c
@@ -70,5 +70,6 @@ itlwm/hal_iwm/ctxt.cpp
 itlwm/hal_iwm/led.cpp
 itlwm/hal_iwm/power.cpp
 itlwm/hal_iwm/scan.cpp
-AirportItlwm/IOPCIEDeviceWrapper.cpp
+ForbiddenItlwm/IOPCIEDeviceWrapper.cpp
 itlwm/hal_iwm/ItlIwm.cpp
+ForbiddenItlwm/AWDLBuildGuard.cpp

@@ -6,9 +6,9 @@
 
 **AirDrop for Intel Wi-Fi cards on macOS.** ForbiddenItlwm is a fork of AirportItlwm that adds AWDL, the peer-to-peer Wi-Fi link AirDrop runs on. Apple's own Wi-Fi stack does the rest. Normal Wi-Fi stays connected while AirDrop works.
 
-For now it supports only macOS Tahoe (26.7.1). Support for more macOS versions is planned.
+For now it supports only macOS Tahoe: 26.7.1, 26.7.2 and 26.7.3. Support for more Tahoe builds and other macOS versions is planned.
 
-> **Status: first public beta (0.1.0-beta1). Experimental.** It has been tested on one machine with one card (Intel AX211) on one macOS build (26.7.1, 25G241): an HP Envy x360 13-bf with an iPhone 11. See [where it was tested](docs/TESTED-HARDWARE.md). Expect rough edges. Test it from a USB stick first, never from your only working EFI.
+> **Status: public beta (0.2.0-beta1). Experimental.** It has been tested on one machine with one card (Intel AX211) on macOS 26.7.1 (25G241): an HP Envy x360 13-bf with an iPhone 11. 26.7.2 and 26.7.3 were verified offline but haven't been tested on hardware yet. See [where it was tested](docs/TESTED-HARDWARE.md). Expect rough edges. Test it from a USB stick first, never from your only working EFI.
 
 ## What works
 
@@ -34,6 +34,7 @@ Tested with the same Mac and iPhone:
 | --- | --- |
 | Handoff | Works in both directions |
 | Universal Clipboard | Works |
+| iMessage and other push-based services over Wi-Fi | Work (fixed in 0.2.0: the original Tahoe driver left Wi-Fi rated "off", so Apple Push never connected) |
 | Instant Hotspot | Doesn't work yet |
 | Continuity Camera | Doesn't work yet |
 | iPhone Mirroring | Doesn't work. Probably can't without a T2 chip or Apple silicon |
@@ -41,7 +42,16 @@ Tested with the same Mac and iPhone:
 
 ## Requirements
 
-- **macOS 26.7.1 (25G241) exactly.** The driver hooks into macOS's Wi-Fi stack at places checked on this build only. On other builds it may fail to load or panic. Don't use it on any other version.
+- **macOS Tahoe 26.7.1, 26.7.2 or 26.7.3.** The driver hooks into macOS's Wi-Fi stack, so each build has to be checked.
+
+  | Build | Status |
+  | --- | --- |
+  | 26.7.1 (25G241) | Tested on hardware |
+  | 26.7.2 (25G332) | Wi-Fi side verified offline from Apple's Kernel Debug Kit. Bluetooth side and hardware not tested yet |
+  | 26.7.3 (25G342) | Wi-Fi side verified offline from Apple's Kernel Debug Kit. Bluetooth side and hardware not tested yet |
+  | Any other build | AirDrop stays off and normal Wi-Fi works |
+
+  The driver checks the build itself when it starts. On a build it doesn't know, it keeps AirDrop off instead of risking a kernel panic. BTLEAdvFixup's patterns are exact bytes from 26.7.1's `bluetoothd`. On other builds, `tools/compat/check_compat.sh` shows whether they still match.
 - **An Intel Wi-Fi card that AirportItlwm supports.** Only the AX211 is tested. The AX210 and AX411, and CNVi radios on Alder Lake and newer, are close relatives and may work. See the [compatibility table](tools/compat/README.md).
 - **An Intel Bluetooth controller** with [IntelBluetoothFirmware](https://github.com/OpenIntelWireless/IntelBluetoothFirmware) and BlueToolFixup ([BrcmPatchRAM](https://github.com/acidanthera/BrcmPatchRAM)), plus [Lilu](https://github.com/acidanthera/Lilu) and this project's **BTLEAdvFixup**. AirDrop finds devices over Bluetooth LE before it uses Wi-Fi.
 - **OpenCore.**
@@ -90,7 +100,7 @@ See **[docs/INSTALL.md](docs/INSTALL.md)**. In short:
 
 ## Known limitations
 
-- **One macOS build.** 26.7.1 (25G241) only, and no check refuses other builds yet. Don't install it on anything else.
+- **Three macOS builds.** 26.7.1 to 26.7.3. On any other build the driver keeps AirDrop off. 26.7.2 and 26.7.3 still need reports from real hardware.
 - **One tested card.** Everything except the AX211 is untested.
 - **Cold iPhone → Mac connects are slow,** usually 3 to 10 s and sometimes longer. The time goes into the iPhone finding the Mac before any data moves. This is the main open problem.
 - **No sleep and wake testing** beyond normal use on the test machine.

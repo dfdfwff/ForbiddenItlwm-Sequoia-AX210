@@ -5,7 +5,7 @@ Tests construction/cleanup, not real IOKit, mbuf allocation or firmware.
 from pathlib import Path
 import subprocess,tempfile
 root=Path(__file__).resolve().parents[1]
-source=(root/'AirportItlwm/AirportItlwmV2.cpp').read_text()
+source=(root/'ForbiddenItlwm/AirportItlwmV2.cpp').read_text()
 start=source.index('IOReturn AirportItlwm::buildAWDLSyncProbe(')
 body=source[start:source.index('\n#if defined(AIRPORT_WCL)',start+100)]
 program=r'''

@@ -407,6 +407,8 @@ public:
     void stopWCL();
     void handleWCLEvent(int, void *);
     void handleWCLLink(bool);
+    // Called from the controller's 1 s watchdog: posts the link's RSSI to WCL every few seconds.
+    void wclPostLinkQuality();
     void completeWCLScan();
 private:
     static IOReturn wclCommand(OSObject *, void *, void *, void *, void *);
@@ -439,6 +441,8 @@ private:
     uint8_t wclBeaconInfo[0x808] = {};
     uint32_t wclAssociatedBeacons = 0;
     uint32_t wclLqmBeacons = 0;
+    uint32_t wclLqmTicks = 0, wclLqmPeriodicPosts = 0, wclLqmBeaconPosts = 0;
+    int32_t wclLinkQualityReported = 0;   // 0: nothing reported since the link came up
     uint32_t wclLqmReportedBeacons = 0;
     bool joinPending;
     bool joinDeferred = false;

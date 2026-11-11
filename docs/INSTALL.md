@@ -1,10 +1,10 @@
 # Installing ForbiddenItlwm
 
-This beta has been tested on one machine: an HP Envy x360 13-bf with an Intel AX211, on macOS 26.7.1 (25G241), booted with OpenCore 1.0.8, with an iPhone 11. The details are in [TESTED-HARDWARE.md](TESTED-HARDWARE.md). Read the whole page before you start.
+This beta has been tested on one machine: an HP Envy x360 13-bf with an Intel AX211, on macOS 26.7.1 (25G241). 26.7.2 (25G332) and 26.7.3 (25G342) were verified offline. It was booted with OpenCore 1.0.8, with an iPhone 11. The details are in [TESTED-HARDWARE.md](TESTED-HARDWARE.md). Read the whole page before you start.
 
 ## Before you start
 
-- **Check your macOS build:** `sw_vers -buildVersion` must print `25G241`. On any other build, stop here.
+- **Check your macOS build:** `sw_vers -buildVersion` should print `25G241`, `25G332` or `25G342`. On any other build the driver keeps AirDrop off and works as plain Wi-Fi.
 - **Run the checker:** `bash tools/compat/check_compat.sh`. It tells you whether your card and Bluetooth are likely to work.
 - **Use a USB stick.** Copy your working EFI folder to a USB stick and make every change there. Your internal EFI stays as it is, so if anything goes wrong you just boot without the stick.
 - **Know the rollback:** boot from your internal EFI, or put the original `AirportItlwm.kext` and `config.plist` back on the stick.
@@ -89,7 +89,7 @@ All of this goes on the **USB stick's** EFI.
    ioreg -l -w0 | grep -E '"ItlwmAWDLInterfaceBuild"|"ITLAWDLCoex(Added|Channel|CountryLearned)"'
    ```
 
-   You should see `forbidden-0.1.0-beta1`, `Added` Yes, `Channel` 149 and `CountryLearned` Yes. `Channel` 6 means the firmware hasn't opened channel 149: see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+   You should see `forbidden-0.2.0-beta1`, `Added` Yes, `Channel` 149 and `CountryLearned` Yes. `Channel` 6 means the firmware hasn't opened channel 149: see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 4. Or run `bash tools/compat/check_compat.sh` again. It now also reads the listener's state.
 5. Turn on AirDrop on both devices. Contacts Only works when the iPhone and the Mac share an Apple Account or know each other as contacts. Otherwise use Everyone for 10 Minutes.

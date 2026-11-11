@@ -566,11 +566,70 @@ IOReturn AirportItlwmSkywalkInterface::abortWCLJoin()
     return kIOReturnSuccess;
 }
 
+// IOSkywalkNetworkInterface::reportLinkQuality(q) sets the BSD interface's link quality metric
+// (ifnet_set_link_quality). configd publishes it as State:/Network/Interface/en0/LinkQuality, and apsd
+// only connects push over an interface whose metric isn't "off" (-2). Nothing set it on Tahoe: the
+// pre-Skywalk driver's setLinkQualityMetric(100) at link-up is commented out in the V2 path, and
+// IO80211SkywalkInterface::setLQM is an empty stub, so en0 stayed "off" and push, iMessage and
+// other Apple services never connected over Wi-Fi. Non-virtual, exported by IOSkywalkFamily.
+extern "C" IOReturn itlReportLinkQuality(IOSkywalkNetworkInterface *, unsigned int)
+    __asm__("__ZN25IOSkywalkNetworkInterface17reportLinkQualityEj");
+
+namespace {
+// The kernel's IFNET_LQM_THRESH_* values.
+constexpr int32_t kLinkQualityOff = -2, kLinkQualityBad = 10, kLinkQualityPoor = 50, kLinkQualityGood = 100;
+int32_t linkQualityForRSSI(int32_t rssi)
+{
+    if (rssi >= -70) return kLinkQualityGood;
+    if (rssi >= -80) return kLinkQualityPoor;
+    return kLinkQualityBad;
+}
+}
+
+// WCL keeps the link's RSSI only from LqmUpdate. The beacon-driven update above rarely runs while
+// associated, because the firmware filters most beacons, so WCL is left with 0 dBm: airportd then
+// rates en0's link quality "off" (-2) and apsd won't use Wi-Fi, which stops push and iMessage.
+// This posts an RSSI-only update every 2 s while the port is up. handleLqmUpdate stores the RSSI
+// first and, with the snapshot and counter flags clear, stops there.
+void AirportItlwmSkywalkInterface::wclPostLinkQuality()
+{
+#if __IO80211_TARGET != __MAC_15_2
+    if (wclStopping || !portAuthorized || !instance)
+        return;
+    if (++wclLqmTicks % 2)
+        return;
+    apple80211_rssi_data rssi = {};
+    if (getRSSI(&rssi) != kIOReturnSuccess || rssi.aggregate_rssi >= 0)
+        return;
+    const int32_t quality = linkQualityForRSSI(rssi.aggregate_rssi);
+    if (quality != wclLinkQualityReported) {
+        const IOReturn result = itlReportLinkQuality(static_cast<IOSkywalkNetworkInterface *>(this), uint32_t(quality));
+        if (result == kIOReturnSuccess)
+            wclLinkQualityReported = quality;
+        instance->setProperty("ItlwmWCLLinkQuality", uint64_t(uint32_t(quality)), 32);
+        instance->setProperty("ItlwmWCLLinkQualityResult", uint64_t(uint32_t(result)), 32);
+    }
+    AirportWCL::LqmBeaconUpdate update = {};
+    update.rssiValid = 1;
+    update.rssi = rssi.aggregate_rssi;
+    instance->postMessage(this, AirportWCL::LqmUpdate, &update, sizeof(update), true);
+    if (++wclLqmPeriodicPosts == 1 || !(wclLqmPeriodicPosts % 30)) {
+        instance->setProperty("ItlwmWCLLqmPeriodicPosts", wclLqmPeriodicPosts, 32);
+        instance->setProperty("ItlwmWCLLqmBeaconPosts", wclLqmBeaconPosts, 32);
+        instance->setProperty("ItlwmWCLLqmLastRssi", uint64_t(uint32_t(rssi.aggregate_rssi)), 32);
+    }
+#endif
+}
+
 void AirportItlwmSkywalkInterface::handleWCLLink(bool up)
 {
     if (wclStopping)
         return;
     portAuthorized = up;
+    if (!up && wclLinkQualityReported) {
+        itlReportLinkQuality(static_cast<IOSkywalkNetworkInterface *>(this), uint32_t(kLinkQualityOff));
+        wclLinkQualityReported = 0;
+    }
     if (!up && wclLinkIndicated) {
         AirportWCL::LinkStatusEvent event = {};
         memcpy(event.bssid, joinBSSID, sizeof(event.bssid));
@@ -674,9 +733,15 @@ void AirportItlwmSkywalkInterface::handleWCLEvent(int code, void *data)
                     AirportWCL::LqmBeaconUpdate update;
                     if (AirportWCL::makeBeaconUpdate(
                             wclLqmBeacons - wclLqmReportedBeacons, update)) {
+                        apple80211_rssi_data rssi = {};
+                        if (getRSSI(&rssi) == kIOReturnSuccess && rssi.aggregate_rssi < 0) {
+                            update.rssiValid = 1;
+                            update.rssi = rssi.aggregate_rssi;
+                        }
                         instance->postMessage(this, AirportWCL::LqmUpdate,
                             &update, sizeof(update), true);
                         wclLqmReportedBeacons = wclLqmBeacons;
+                        ++wclLqmBeaconPosts;
                     }
 #endif
                 }

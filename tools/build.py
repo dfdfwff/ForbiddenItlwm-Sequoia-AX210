@@ -3,7 +3,7 @@
 import argparse,concurrent.futures,hashlib,os,plistlib,re,subprocess,sys
 from pathlib import Path
 R=Path(__file__).resolve().parents[1]
-NAME='ForbiddenItlwm';ID='org.forbiddenitlwm.ForbiddenItlwm';VER='0.1.0'
+NAME='ForbiddenItlwm';ID='org.forbiddenitlwm.ForbiddenItlwm';VER='0.2.0'
 def sources():
     # The kext's translation units, in link order. Taken from the AirportItlwm-Tahoe target this was forked from.
     names=[l.strip() for l in (R/'tools/sources.txt').read_text().splitlines() if l.strip() and not l.startswith('#')]
@@ -47,7 +47,7 @@ __attribute__((visibility("hidden"))) int _kext_apple_cc=__APPLE_CC__;
     kext=out/(NAME+'.kext')/'Contents';(kext/'MacOS').mkdir(parents=True,exist_ok=True)
     exe=kext/'MacOS'/NAME
     subprocess.run(['xcrun','clang++','-arch','x86_64','-mmacosx-version-min=10.15','-nostdlib','-Xlinker','-kext','-Xlinker','-no_fixup_chains','-lkmodc++','-lkmod','-lcc_kext','-L'+str(sdk/'Library/x86_64'),'-o',exe,*objs],check=True)
-    p=plistlib.loads((R/'AirportItlwm/WCL/Info.plist').read_bytes())
+    p=plistlib.loads((R/'ForbiddenItlwm/WCL/Info.plist').read_bytes())
     def sub(v):
         if isinstance(v,dict):return {k:sub(x) for k,x in v.items()}
         if isinstance(v,str):
