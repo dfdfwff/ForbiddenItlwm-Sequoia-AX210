@@ -10,6 +10,8 @@ It supports macOS Tahoe 26.7.x and, from 0.3.0, macOS Sequoia 15.8.x. **Each mac
 
 > **Status: public beta (0.3.0-beta1). Experimental.** It has been tested on one machine with one card (Intel AX211) on macOS 26.7.1 (25G241): an HP Envy x360 13-bf with an iPhone 11. 26.7.2 and 26.7.3 were verified offline but haven't been tested on hardware yet. **The Sequoia build is new and hasn't been tested on any hardware yet:** it was verified offline from Apple's Kernel Debug Kits, and testers are needed. See [where it was tested](docs/TESTED-HARDWARE.md). Expect rough edges. Test it from a USB stick first, never from your only working EFI.
 
+> **Test build: [0.3.1-test1](https://github.com/retropineaple/ForbiddenItlwm/releases/tag/v0.3.1-test1).** It fixes AirDrop on setups that pad AWDL frames (issue #6), adds BTLEAdvFixup patterns for macOS 26.7.3 (issue #5), and finds Wi-Fi cards behind a PCI root port in the checker. Not tested on hardware yet. Testers welcome; everyone else should stay on 0.3.0-beta1.
+
 ## ⚠️ Read this first
 
 > [!WARNING]
@@ -62,7 +64,7 @@ Tested with the same hackintosh and iPhone, on Tahoe 26.7.1:
   | macOS | Build | Status |
   | --- | --- | --- |
   | Tahoe | 26.7.1 (25G241) | Tested on hardware |
-  | Tahoe | 26.7.3 (25G342) | Wi-Fi side verified offline from Apple's Kernel Debug Kit. BTLEAdvFixup 0.8.1's patterns verified offline from Apple's installer. Not tested on hardware yet |
+  | Tahoe | 26.7.3 (25G342) | Wi-Fi side verified offline from Apple's Kernel Debug Kit. BTLEAdvFixup 0.8.1's patterns (in the 0.3.1-test1 build) verified offline from Apple's installer. Not tested on hardware yet |
   | Tahoe | 26.7.2 (25G332) | Wi-Fi side verified offline from Apple's Kernel Debug Kit. BTLEAdvFixup's patterns not checked for this build. Not tested on hardware yet |
   | Sequoia | 15.8 (24H23), 15.8.3 (24H241) | Wi-Fi side verified offline from Apple's Kernel Debug Kits. BTLEAdvFixup's patterns match 15.8.3. Not tested on hardware yet |
   | Sequoia | 15.8.1 (24H32), 15.8.2 (24H232) | Expected to work (same kernel family), not checked offline. BTLEAdvFixup's patterns may not match |
