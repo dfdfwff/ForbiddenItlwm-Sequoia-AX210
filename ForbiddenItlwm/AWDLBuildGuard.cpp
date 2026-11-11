@@ -37,6 +37,7 @@ namespace {
 struct Anchor { unsigned slot; uintptr_t expected; };
 
 int gAllowed = -1;
+bool gVerified = false;
 const char *gStatus = "not-checked";
 
 bool vtableMatches()
@@ -89,6 +90,7 @@ bool itlAWDLBuildAllowed()
     } else if (build == ItlAWDL::BuildCheck::Verified) {
         gStatus = "verified";
         gAllowed = 1;
+        gVerified = true;
 #ifdef ITL_AWDL_GUARD_SEQUOIA
     } else if (build == ItlAWDL::BuildCheck::Expected) {
         gStatus = "expected: macOS 15.8.x kernel not checked offline";
@@ -103,6 +105,14 @@ bool itlAWDLBuildAllowed()
     }
     IOLog("ForbiddenItlwm: AirDrop %s\n", gStatus);
     return gAllowed == 1;
+}
+
+// True only for a kernel on the verified list whose table matched. Code that relies on native data
+// layouts the vtable anchors don't cover (such as the master indication request) needs this, not
+// just itlAWDLBuildAllowed(): an "expected" or -itlawdlanybuild build stays off.
+bool itlAWDLBuildVerified()
+{
+    return itlAWDLBuildAllowed() && gVerified;
 }
 
 const char *itlAWDLBuildStatus()

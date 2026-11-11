@@ -76,6 +76,22 @@ inline bool extendWithPeerTLVs(uint8_t *tlvs, size_t *length, size_t capacity, c
 // because it advertises hopping this radio doesn't do; extendWithPeerTLVs adds a
 // channel-6 one. Election (5) and data rate (7) go so they aren't duplicated.
 // Everything else, including services and ARPA, is kept byte for byte.
+// True when bytes from macOS's master indication request are a complete run of TLVs that ends exactly
+// at length and holds an election v2 TLV (type 24, at least 28 bytes), which the frame builder needs
+// anyway. Checked before the bytes are kept, so stray memory behind a wrong pointer is far less likely
+// to be stored and broadcast. It doesn't make a wrong pointer safe to read.
+inline bool masterIndicationWellFormed(const uint8_t *source, size_t length) {
+    if (!source || !length) return false;
+    bool election = false;
+    for (size_t offset = 0; offset < length;) {
+        if (length - offset < 3) return false;
+        const size_t count = read16(source + offset + 1);
+        if (count > length - offset - 3) return false;
+        election |= source[offset] == 24 && count >= 28;
+        offset += 3 + count;
+    }
+    return election;
+}
 inline bool buildMasterIndicationTLVs(const uint8_t *source, size_t length, const uint8_t *address,
                                       uint8_t *output, size_t capacity, size_t *written, uint8_t channel = 6,
                                       uint8_t channelClass = 0, bool twoStreams = false) {

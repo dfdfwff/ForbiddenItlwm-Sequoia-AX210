@@ -80,13 +80,19 @@ IOReturn ItlAWDLInterface::setAWDL_PEER_TRAFFIC_REGISTRATION(apple80211_awdl_pee
     return data ? kIOReturnSuccess : kIOReturnBadArgument;
 }
 
+extern bool itlAWDLBuildVerified();
+
 void ItlAWDLInterface::acceptNativeRequests()
 {
     nativeState.accept = true;
     setProperty("ItlwmAWDLNativeUp", true);
     int debug = 0;
     debugFlagsWanted = PE_parse_boot_argn("-itlawdlpmdebug", &debug, sizeof(debug));
-    masterIndicationEnabled = PE_parse_boot_argn("-itlawdlmitx", &debug, sizeof(debug));
+    // The request carries a raw pointer at a fixed offset, a layout checked only for the verified
+    // builds. On any other build (expected, or allowed by -itlawdlanybuild) the copy stays off.
+    const bool wanted = PE_parse_boot_argn("-itlawdlmitx", &debug, sizeof(debug));
+    masterIndicationEnabled = wanted && itlAWDLBuildVerified();
+    setProperty("ItlwmAWDLMiState", !wanted ? "off" : masterIndicationEnabled ? "on" : "blocked: build not verified");
 }
 
 IOReturn ItlAWDLInterface::getAWDL_AF_TX_MODE(apple80211_awdl_af_tx_mode *data)
@@ -114,7 +120,8 @@ IOReturn ItlAWDLInterface::setAWDL_AF_TX_MODE(apple80211_awdl_af_tx_mode *data)
 }
 
 // Reports success, but nothing is sent yet: the request's format is unknown, so
-// this build only records it. The sample may hold addresses; never publish it.
+// this build only records it. The sample is the fixed header before offset 0x28 only: on Tahoe and
+// Sequoia the length sits at 0x28 and a raw kernel pointer at 0x30, and neither may be published.
 IOReturn ItlAWDLInterface::noteOobRequest(const apple80211_awdl_oob_request *data, const char *name)
 {
     if (!nativeState.accept)
@@ -126,14 +133,14 @@ IOReturn ItlAWDLInterface::noteOobRequest(const apple80211_awdl_oob_request *dat
         setProperty("ItlwmAWDLOobRequests", oobRequests, 32);
     if (!oobSampled && awdlRawSamples) {
         oobSampled = true;
-        const size_t header = offsetof(apple80211_awdl_oob_request, data);
-        const size_t body = data->data_len <= sizeof(data->data) ? data->data_len : sizeof(data->data);
-        if (auto *sample = OSData::withBytes(data, unsigned(header + min(body, size_t(256))))) {
+        uint16_t length;
+        memcpy(&length, reinterpret_cast<const uint8_t *>(data) + 0x28, sizeof(length));
+        if (auto *sample = OSData::withBytes(data, 0x28)) {
             setProperty("ItlwmAWDLOobSample", sample);
             sample->release();
         }
         setProperty("ItlwmAWDLOobFirstName", name);
-        setProperty("ItlwmAWDLOobFirstLength", data->data_len, 32);
+        setProperty("ItlwmAWDLOobFirstLength", length, 32);
     }
     return kIOReturnSuccess;
 }
@@ -159,7 +166,8 @@ void ItlAWDLInterface::storeMasterIndication(const apple80211_awdl_oob_request *
     memcpy(&length, raw + 0x28, sizeof(length));
     memcpy(&source, raw + 0x30, sizeof(source));
     // Only ever a kernel buffer from the peer manager, and never over its capacity.
-    if (reinterpret_cast<uintptr_t>(source) < 0xffffff8000000000ULL || !length || length > sizeof(masterIndication)) {
+    if (reinterpret_cast<uintptr_t>(source) < 0xffffff8000000000ULL || !length || length > sizeof(masterIndication) ||
+        !ItlAWDL::masterIndicationWellFormed(source, length)) {
         ++masterIndicationRejected;
         setProperty("ItlwmAWDLMiRejected", masterIndicationRejected, 32);
         return;

@@ -590,6 +590,13 @@ int main() {
         const uint8_t *body=out+peerTLVPrefixBytes;                               // services unchanged
         assert(body[0]==24 && body[43]==16 && body[46]==0xa1 && body[56]==6 && body[59]==0x66);
         (void)kept;
+        // Kept only when well formed: a complete TLV run with election v2.
+        assert(masterIndicationWellFormed(mi,n));
+        assert(!masterIndicationWellFormed(mi,n-1) && !masterIndicationWellFormed(mi,n+1));
+        assert(!masterIndicationWellFormed(mi,2) && !masterIndicationWellFormed(nullptr,n) && !masterIndicationWellFormed(mi,0));
+        {uint8_t noV2[20]={16,1,0,1,4,2,0,9,9};assert(!masterIndicationWellFormed(noV2,9));}
+        {uint8_t shortV2[40]={24,27,0};assert(!masterIndicationWellFormed(shortV2,30));}
+        {uint8_t junk[64];for(size_t i=0;i<sizeof(junk);++i)junk[i]=uint8_t(0xa5^i);assert(!masterIndicationWellFormed(junk,sizeof(junk)));}
         // Refusals: no election v2, truncation, too small, null.
         uint8_t noElection[20]={16,1,0,1};size_t w=9;
         uint8_t scratch[400];
