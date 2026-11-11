@@ -38,7 +38,7 @@ What the verdict means:
 | Verdict | Cards | Meaning |
 | --- | --- | --- |
 | Tested | AX211 | The card this was developed on |
-| Close relative | AX210, AX411, and AX201/AX203 or 9560-class radios on Alder Lake and newer | Same family and firmware generation as the AX211. Should work as is, but untested |
+| Close relative | AX210, AX411, and AX201/AX203 or 9560-class radios on Alder Lake and newer | Same family and firmware generation as the AX211. Should work as is. Users report the AX210 working |
 | Older family | AX200, and AX201/AX101 or 9560/9461/9462 on Ice, Comet or Tiger Lake | Untested code paths. Will probably need small fixes. One-antenna cards (AX101, 9461, 9462) need more |
 | Large port | 7260, 7265, 3160, 3165, 3168, 8260, 8265, 9260, and the 9560/9461/9462 on Coffee and Cannon Lake | Not supported |
 | Unsupported | Pre-2013 cards, Wi-Fi 7 (BE200, BE201), Meteor Lake CNVi | Not supported |

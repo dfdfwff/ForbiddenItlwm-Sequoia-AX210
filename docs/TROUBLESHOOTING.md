@@ -8,7 +8,7 @@ ioreg -l -w0 | grep -E '"ItlwmAWDL(InterfaceBuild|BuildCheck)"|"ITLAWDLCoex(Adde
 
 | Key | Healthy value |
 | --- | --- |
-| `ItlwmAWDLInterfaceBuild` | `forbidden-0.3.0-beta1`, or `forbidden-0.3.0-beta1-sequoia` |
+| `ItlwmAWDLInterfaceBuild` | `forbidden-0.4.0-beta1`, or `forbidden-0.4.0-beta1-sequoia` |
 | `ItlwmAWDLBuildCheck` | `verified`, or on Sequoia 15.8.1 and 15.8.2 `expected: macOS 15.8.x kernel not checked offline`. Anything starting with `blocked` means AirDrop is off on this macOS build: see below |
 | `ITLAWDLCoexAdded` | Yes: the AirDrop listener exists |
 | `ITLAWDLCoexChannel`, `ITLAWDLCoexOwnWidth` | 149 and 80 |

@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.4.0-beta1
+
+Everything from the 0.3.1-test1 test build (below), plus:
+
+- **Security fixes.** A review of the driver found these, and they're fixed:
+  - **Wi-Fi password handshake (WPA/WPA2):** a length check in the handshake code could be fooled by a malformed message, letting a malicious access point, or anyone who knows the network's password, corrupt kernel memory. This code comes from itlwm and OpenBSD.
+  - **An old join function** copied network name and key lengths without checking them. Normal joins don't use it, but it now refuses anything that doesn't fit.
+  - **The AirDrop announcement copy (`-itlawdlmitx`)** now only runs on macOS builds whose data layout was verified, so it stays off with `-itlawdlanybuild` and on unverified Sequoia versions (`ItlwmAWDLMiState` shows which). It only keeps data that looks like a real announcement. With `-itlawdlsamples`, a kernel address is no longer published in the I/O Registry.
+  - **Memory and shutdown:** two memory leaks on rejected Wi-Fi frames, packets not handed back when the AirDrop interface stops, power callbacks that could run after the driver stopped, a use-after-free after a failed start, and a once-a-second health check (the watchdog) that ran without the driver's lock.
+  - **One card only:** a second supported Intel Wi-Fi card is now left alone instead of corrupting the first one's state.
+- **WPA2/WPA3 networks rejoin after a reboot.** Networks offering WPA2, PSK-SHA256 and WPA3 together were shown to macOS as WPA3, which the driver can't complete, so auto-join failed and macOS gave up on the whole network. They're now shown as WPA2, as with the original AirportItlwm, and the driver no longer picks PSK-SHA256 without protected management frames. Thanks to lucassaureliano (issue #9), alikaylan (issue #5) and mingww64, whose PR #1 carries the same fix.
+- **BTLEAdvFixup 0.8.2:** its state is locked between threads; commands it adds time out after a second and are retried if they fail; it only acts on Intel Bluetooth controllers; and a removed advertising set no longer keeps its old random address. Its patterns also cover 26.7.2, whose `bluetoothd` matches 26.7.3's (thanks to ZEQ-Avidia, issue #8).
+- **`check_compat.sh`:** no longer counts one Bluetooth pattern twice, which made it warn on 26.7.3 (issues #5, #8), and the listener check uses a more portable `grep`.
+- **Removing BTLEAdvFixup before a macOS update:** an incremental update can fail while `bluetoothd` is patched (issue #8). Boot once without `-btleadv` before updating.
+- **Tested** on the project's hackintosh (AX211, 26.7.1): WPA2 and open networks, AirDrop both ways, Bluetooth devices, Wi-Fi off and on, and restarts. Sleep wasn't tested.
+
 ## 0.3.1-test1 (test build)
 
 - **AirDrop on setups that pad AWDL frames.** On some machines every AirDrop frame from the iPhone arrived with zero bytes after its last field, so the driver rejected all of them and transfers stayed on "Waiting". Seen on an AX211 (8086:51F1) in a ThinkPad E16 Gen 3 with an iPhone 16 Pro. The driver now cuts that padding, and only that: nothing but trailing zero bytes is removed, and only when the frame is otherwise invalid and parses without them. `ITLAWDLCoexZeroPadTrimmed` counts the frames fixed. Diagnosis and approach by keenerdavid18 (issue #6). Not tested on that hardware with this exact build yet.

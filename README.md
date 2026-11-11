@@ -8,9 +8,9 @@
 
 It supports macOS Tahoe 26.7.x and, from 0.3.0, macOS Sequoia 15.8.x. **Each macOS version has its own kexts:** download the ones for your macOS.
 
-> **Status: public beta (0.3.0-beta1). Experimental.** It has been tested on one machine with one card (Intel AX211) on macOS 26.7.1 (25G241): an HP Envy x360 13-bf with an iPhone 11. 26.7.2 and 26.7.3 were verified offline but haven't been tested on hardware yet. **The Sequoia build is new and hasn't been tested on any hardware yet:** it was verified offline from Apple's Kernel Debug Kits, and testers are needed. See [where it was tested](docs/TESTED-HARDWARE.md). Expect rough edges. Test it from a USB stick first, never from your only working EFI.
+> **Status: public beta (0.4.0-beta1). Experimental.** The project tests on one machine with one card (Intel AX211) on macOS 26.7.1 (25G241): an HP Envy x360 13-bf with an iPhone 11. Users report AirDrop working on 26.7.2 and 26.7.3 too. **The Sequoia build hasn't been confirmed working on any hardware yet**, and testers are needed. See [where it was tested](docs/TESTED-HARDWARE.md). Expect rough edges. Test it from a USB stick first, never from your only working EFI.
 
-> **Test build: [0.3.1-test1](https://github.com/retropineaple/ForbiddenItlwm/releases/tag/v0.3.1-test1).** It fixes AirDrop on setups that pad AWDL frames (issue #6), adds BTLEAdvFixup patterns for macOS 26.7.3 (issue #5), and finds Wi-Fi cards behind a PCI root port in the checker. Not tested on hardware yet. Testers welcome; everyone else should stay on 0.3.0-beta1.
+> **Update from 0.3.0-beta1.** 0.4.0-beta1 fixes security bugs in the driver, including one in the Wi-Fi password handshake code that came from the original itlwm. See the [changelog](CHANGELOG.md).
 
 ## ⚠️ Read this first
 
@@ -24,6 +24,7 @@ It supports macOS Tahoe 26.7.x and, from 0.3.0, macOS Sequoia 15.8.x. **Each mac
 - Test from a USB stick with a copy of your EFI, never your only working one.
 - Keep backups, and a working EFI you can boot without it.
 - Check the [requirements](#requirements) and run the [compatibility checker](#will-it-work-on-my-hackintosh) first.
+- **Before you update macOS, boot once without `-btleadv`.** While BTLEAdvFixup is active, `bluetoothd` reads as modified, and an incremental macOS update that checks it can fail.
 
 All the hardware results the project reports come from the maintainer's own tests. Reports from other users are marked as such, and the Sequoia build has only been checked offline so far. Please report anything that looks wrong.
 
@@ -64,14 +65,14 @@ Tested with the same hackintosh and iPhone, on Tahoe 26.7.1:
   | macOS | Build | Status |
   | --- | --- | --- |
   | Tahoe | 26.7.1 (25G241) | Tested on hardware |
-  | Tahoe | 26.7.3 (25G342) | Wi-Fi side verified offline from Apple's Kernel Debug Kit. BTLEAdvFixup 0.8.1's patterns (in the 0.3.1-test1 build) verified offline from Apple's installer. Not tested on hardware yet |
-  | Tahoe | 26.7.2 (25G332) | Wi-Fi side verified offline from Apple's Kernel Debug Kit. BTLEAdvFixup's patterns not checked for this build. Not tested on hardware yet |
+  | Tahoe | 26.7.3 (25G342) | Reported working by a user (AX210). Wi-Fi side verified offline from Apple's Kernel Debug Kit, BTLEAdvFixup's patterns from Apple's installer |
+  | Tahoe | 26.7.2 (25G332) | Reported working by a user (AX210). Wi-Fi side verified offline from Apple's Kernel Debug Kit. BTLEAdvFixup's patterns are the same bytes as 26.7.3's |
   | Sequoia | 15.8 (24H23), 15.8.3 (24H241) | Wi-Fi side verified offline from Apple's Kernel Debug Kits. BTLEAdvFixup's patterns match 15.8.3. Not tested on hardware yet |
   | Sequoia | 15.8.1 (24H32), 15.8.2 (24H232) | Expected to work (same kernel family), not checked offline. BTLEAdvFixup's patterns may not match |
   | Any other build | | AirDrop stays off and normal Wi-Fi works |
 
-  The driver checks the build itself when it starts. On a build it doesn't know, it keeps AirDrop off instead of risking a kernel panic. BTLEAdvFixup's patterns are exact bytes from specific `bluetoothd` builds (26.7.1 and 26.7.3 on Tahoe, 15.8.3 on Sequoia). On other builds, `tools/compat/check_compat.sh` shows whether they still match.
-- **An Intel Wi-Fi card that AirportItlwm supports.** Only the AX211 is tested by the project. Users have reported the Tahoe kext working on an AX201 and on other AX211 machines on 26.7.1 (see [user reports](docs/TESTED-HARDWARE.md#user-reports)). The AX210 and AX411, and CNVi radios on Alder Lake and newer, are close relatives and may work. See the [compatibility table](tools/compat/README.md).
+  The driver checks the build itself when it starts. On a build it doesn't know, it keeps AirDrop off instead of risking a kernel panic. BTLEAdvFixup's patterns are exact bytes from specific `bluetoothd` builds (26.7.1, and 26.7.2 and 26.7.3, which share theirs, on Tahoe; 15.8.3 on Sequoia). On other builds, `tools/compat/check_compat.sh` shows whether they still match.
+- **An Intel Wi-Fi card that AirportItlwm supports.** Only the AX211 is tested by the project. Users have reported the Tahoe kext working on an AX201 and on other AX211 machines on 26.7.1, and on an AX210 on 26.7.2 and 26.7.3 (see [user reports](docs/TESTED-HARDWARE.md#user-reports)). The AX411, and CNVi radios on Alder Lake and newer, are close relatives and may work. See the [compatibility table](tools/compat/README.md).
 - **An Intel Bluetooth controller** with [IntelBluetoothFirmware](https://github.com/OpenIntelWireless/IntelBluetoothFirmware) and BlueToolFixup ([BrcmPatchRAM](https://github.com/acidanthera/BrcmPatchRAM)), plus [Lilu](https://github.com/acidanthera/Lilu) and this project's **BTLEAdvFixup**. AirDrop finds devices over Bluetooth LE before it uses Wi-Fi.
 - **OpenCore.**
 - **macOS's own Wi-Fi stack.** Like laobamac's native AirportItlwm builds it's based on, ForbiddenItlwm uses the IO80211Family that ships with macOS. If you applied OpenCore Legacy Patcher's "Modern Wireless" root patches for an older AirportItlwm, revert them first: they replace the Wi-Fi stack the driver was checked against.

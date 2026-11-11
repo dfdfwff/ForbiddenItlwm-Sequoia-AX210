@@ -12,7 +12,7 @@ Every result the project measured comes from this one setup. Reports from other 
 | Graphics | Intel Iris Xe (internal 2880 × 1800 OLED) |
 | Wi-Fi | Intel AX211 (Wi-Fi 6E, CNVi, PCI device 8086:51F0), firmware `iwlwifi-so-a0-gf-a0-68` |
 | Bluetooth | Intel AX211 Bluetooth on USB, 8087:0033 (Bluetooth 5.3), firmware loaded by IntelBluetoothFirmware |
-| macOS | macOS Tahoe 26.7.1 (25G241). 26.7.2 (25G332) and 26.7.3 (25G342) verified offline only. Sequoia 15.8.x not tested |
+| macOS | macOS Tahoe 26.7.1 (25G241). 26.7.2 (25G332) and 26.7.3 (25G342) verified offline, and reported working by users. Sequoia 15.8.x not tested |
 | SMBIOS | MacBookPro16,2 |
 | Bootloader | OpenCore 1.0.8 (release build) |
 
@@ -20,8 +20,8 @@ Kexts used with ForbiddenItlwm:
 
 | Kext | Version |
 | --- | --- |
-| ForbiddenItlwm | 0.1.0-beta1 and 0.2.0-beta1 (Tahoe). 0.3.0-beta1 hasn't been booted yet |
-| BTLEAdvFixup | 0.8.0 |
+| ForbiddenItlwm | 0.1.0-beta1, 0.2.0-beta1, and 0.4.0-beta1's changes in development builds (Tahoe) |
+| BTLEAdvFixup | 0.8.0, and 0.8.2's changes in a development build |
 | Lilu | 1.7.2 |
 | IntelBluetoothFirmware | 2.5.1 |
 | BlueToolFixup | 2.7.3 |
@@ -57,13 +57,15 @@ Users on Reddit have reported the Tahoe kext working on macOS 26.7.1 with these 
 | --- | --- |
 | Intel AX201 | macOS 26.7.1 |
 | Intel AX211, on other machines than the test laptop | macOS 26.7.1 |
+| Intel AX210 (desktop, Intel NUC8) | macOS 26.7.2, with 0.3.1-test1 (issue #8) |
+| Intel AX210 | macOS 26.7.3, with 0.3.1-test1 (issue #5) |
 
 The project hasn't verified these reports. The platforms, and which features were tried, vary between them.
 
 ## Not tested
 
 - Other Intel cards, and other laptops with an AX211, beyond the user reports above
-- Other macOS builds, including 26.7.2 and 26.7.3
+- Other macOS builds, and 26.7.2 and 26.7.3 on the project's own hackintosh
 - **macOS Sequoia: the Sequoia build hasn't been booted on any hardware.** It was verified offline from the 15.8 and 15.8.3 Kernel Debug Kits
 - iPads, other iPhones, other Macs
 - Sleep and wake during a transfer, and long-term stability

@@ -204,7 +204,7 @@ extern kern_return_t _start(kmod_info_t *, void *);
 extern kern_return_t _stop(kmod_info_t *, void *);
 extern kern_return_t BTLEAdvFixup_kern_start(kmod_info_t *, void *);
 extern kern_return_t BTLEAdvFixup_kern_stop(kmod_info_t *, void *);
-__attribute__((visibility("default"))) KMOD_EXPLICIT_DECL(org.forbiddenitlwm.BTLEAdvFixup, "0.8.1", _start, _stop)
+__attribute__((visibility("default"))) KMOD_EXPLICIT_DECL(org.forbiddenitlwm.BTLEAdvFixup, "0.8.2", _start, _stop)
 __attribute__((visibility("hidden"))) kmod_start_func_t *_realmain = BTLEAdvFixup_kern_start;
 __attribute__((visibility("hidden"))) kmod_stop_func_t *_antimain = BTLEAdvFixup_kern_stop;
 __attribute__((visibility("hidden"))) int _kext_apple_cc = __APPLE_CC__;

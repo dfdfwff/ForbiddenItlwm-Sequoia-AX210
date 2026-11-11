@@ -22,7 +22,7 @@ What each one does:
 | `-itlawdlcoextx` | Gives the listener its own firmware station and queue, and sends macOS's AWDL sync frames from it |
 | `-itlawdlcoexmulti` | Puts the listener on its own channel (149 at 80 MHz when allowed, else 6). The firmware time-shares the radio between it and the station |
 | `-itlawdlcoexdata` | Carries AirDrop's data through the listener, both ways |
-| `-itlawdlmitx` | Sends macOS's own AWDL announcement (its name and services) in the sync frames |
+| `-itlawdlmitx` | Sends macOS's own AWDL announcement (its name and services) in the sync frames. Only on verified macOS builds: `ItlwmAWDLMiState` says `on`, `off` or `blocked: build not verified` |
 | `-itlawdlelicit` | Adds the extra AWDL fields Apple devices expect: election parameters, channel sequence and HT capabilities |
 | `-itlawdlcaps` | Reports two spatial streams and VHT to macOS and to peers, so the iPhone uses 80 MHz two-stream rates |
 | `-itlawdlsvcmerge` | Merges macOS's service records into the announcement frames, which helps discovery |

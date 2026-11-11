@@ -1,6 +1,6 @@
 # Installing ForbiddenItlwm
 
-This beta has been tested on one hackintosh: an HP Envy x360 13-bf with an Intel AX211, on macOS 26.7.1 (25G241), booted with OpenCore 1.0.8, with an iPhone 11. 26.7.2 (25G332) and 26.7.3 (25G342) were verified offline. The Sequoia build (15.8.x) was verified offline only and hasn't been booted on any hardware yet. The details are in [TESTED-HARDWARE.md](TESTED-HARDWARE.md). Read the whole page before you start.
+This beta has been tested on one hackintosh: an HP Envy x360 13-bf with an Intel AX211, on macOS 26.7.1 (25G241), booted with OpenCore 1.0.8, with an iPhone 11. Users report it working on 26.7.2 (25G332) and 26.7.3 (25G342). The Sequoia build (15.8.x) was verified offline and hasn't been confirmed working on any hardware yet. The details are in [TESTED-HARDWARE.md](TESTED-HARDWARE.md). Read the whole page before you start.
 
 ## Before you start
 
@@ -107,11 +107,15 @@ All of this goes on the **USB stick's** EFI.
    ioreg -l -w0 | grep -E '"ItlwmAWDL(InterfaceBuild|BuildCheck)"|"ITLAWDLCoex(Added|Channel|CountryLearned)"'
    ```
 
-   You should see `forbidden-0.3.0-beta1` (`forbidden-0.3.0-beta1-sequoia` on Sequoia), `BuildCheck` `verified` (or `expected: …` on 15.8.1 and 15.8.2), `Added` Yes, `Channel` 149 and `CountryLearned` Yes. `Channel` 6 means the firmware hasn't opened channel 149: see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+   You should see `forbidden-0.4.0-beta1` (`forbidden-0.4.0-beta1-sequoia` on Sequoia), `BuildCheck` `verified` (or `expected: …` on 15.8.1 and 15.8.2), `Added` Yes, `Channel` 149 and `CountryLearned` Yes. `Channel` 6 means the firmware hasn't opened channel 149: see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 4. Or run `bash tools/compat/check_compat.sh` again. It now also reads the listener's state.
 5. Turn on AirDrop on both devices. Contacts Only works when the iPhone and the Mac share an Apple Account or know each other as contacts. Otherwise use Everyone for 10 Minutes.
 6. Send a file each way.
+
+## Before a macOS update
+
+Boot once without `-btleadv` (or with BTLEAdvFixup disabled), then update. While BTLEAdvFixup is active, `bluetoothd`'s patched pages are what the system reads, and an incremental update that checks the file can fail. Then check that the new build is supported before turning `-btleadv` back on: see the [requirements](../README.md#requirements).
 
 ## Uninstalling
 
