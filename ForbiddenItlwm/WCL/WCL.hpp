@@ -252,6 +252,7 @@ inline bool scanUsesProbes(bool requested, bool activeRequest) {
 inline size_t selectWPA2TransitionMode(uint8_t *ies, size_t length) {
     if (!validIEs(ies, length))
         return length;
+    bool converted = false;
     for (size_t offset = 0; offset < length; ) {
         uint8_t *ie = ies + offset;
         size_t size = size_t(ie[1]) + 2;
@@ -288,8 +289,10 @@ inline size_t selectWPA2TransitionMode(uint8_t *ies, size_t length) {
                 other = true;
             else if (suite[3] == 2)
                 psk = true;
-            else if (suite[3] == 8)
-                sae = true;
+            else if (suite[3] == 6)
+                continue;      // PSK-SHA256: dropped with SAE, as long as plain PSK is offered too
+            else if (suite[3] == 8 || suite[3] == 24)
+                sae = true;    // SAE, and SAE with group-dependent hash
             else
                 other = true;
         }
@@ -309,6 +312,20 @@ inline size_t selectWPA2TransitionMode(uint8_t *ies, size_t length) {
         ie[1] -= removed;
         length -= removed;
         offset += size - removed;
+        converted = true;
+    }
+    // The RSN Extension element only describes SAE features (H2E, protected TWT and the like). Once
+    // the network is shown as WPA2-PSK, macOS must not see it either.
+    if (converted) {
+        for (size_t offset = 0; offset + 2 <= length; ) {
+            const size_t size = size_t(ies[offset + 1]) + 2;
+            if (ies[offset] == 244) {
+                memmove(ies + offset, ies + offset + size, length - offset - size);
+                length -= size;
+            } else {
+                offset += size;
+            }
+        }
     }
     return length;
 }

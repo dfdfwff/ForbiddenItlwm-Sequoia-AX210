@@ -1594,14 +1594,20 @@ ieee80211_choose_rsnparams(struct ieee80211com *ic)
     
     /* filter out unsupported AKMPs */
     ni->ni_rsnakms &= ic->ic_rsnakms;
-    /* prefer SHA-256 based AKMPs */
+    /*
+     * Prefer SHA-256 based AKMPs only when MFP is supported. These drivers
+     * don't set IEEE80211_C_MFP, so a transition network that offers both
+     * PSK and PSK-SHA256 must be joined with plain PSK.
+     */
     if ((ic->ic_flags & IEEE80211_F_PSK) && (ni->ni_rsnakms &
                                              (IEEE80211_AKM_PSK | IEEE80211_AKM_SHA256_PSK))) {
         /* AP supports PSK AKMP and a PSK is configured */
-        if (ni->ni_rsnakms & IEEE80211_AKM_SHA256_PSK)
+        if ((ni->ni_rsnakms & IEEE80211_AKM_SHA256_PSK) && (ic->ic_caps & IEEE80211_C_MFP))
             ni->ni_rsnakms = IEEE80211_AKM_SHA256_PSK;
-        else
+        else if (ni->ni_rsnakms & IEEE80211_AKM_PSK)
             ni->ni_rsnakms = IEEE80211_AKM_PSK;
+        else
+            ni->ni_rsnakms = IEEE80211_AKM_SHA256_PSK;
     } else {
         if (ni->ni_rsnakms & IEEE80211_AKM_SHA256_8021X)
             ni->ni_rsnakms = IEEE80211_AKM_SHA256_8021X;

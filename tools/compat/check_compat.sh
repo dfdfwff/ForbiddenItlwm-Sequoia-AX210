@@ -273,7 +273,7 @@ if [ -r "$BTD" ] && command -v perl >/dev/null 2>&1; then
             @scanning = (n("84c00f8438010000e8b27af8ff488b084889c7ff91a80900004189c6") + n("84c00f8438010000e8c27af8ff488b084889c7ff91a80900004189c6"),
                          n("84c0909090909090e8b27af8ff488b084889c7b801000000904189c6") + n("84c0909090909090e8c27af8ff488b084889c7b801000000904189c6"));
             @randomAddress = (n("83b83403000003772a31ffe83e6bceff") + n("83b83403000003772a31ffe81e6cceff"),
-                              n("83b83403000003772a90909090909090") + n("83b83403000003772a90909090909090"));
+                              n("83b83403000003772a90909090909090"));   # same patched bytes on both builds: count once
             @extendedConnection = (n("0fb6bd5effffffe8cb9dcfff") + n("0fb6bd5effffffe8ab9ecfff"),
                                    n("bf010000009090e8cb9dcfff") + n("bf010000009090e8ab9ecfff"));
         }
@@ -377,7 +377,7 @@ esac
 # ---------------------------------------------------------------- AirDrop runtime
 head1 "6. AirDrop listener (only while the AirDrop build runs)"
 if [ -n "$MARKER" ]; then
-    REG=$(ioreg -l -w0 2>/dev/null | grep -o '"ITLAWDLCoex\(Channel\|OwnWidth\|CountryLearned\|CountryNotices\|CountryAnswers\|CountryFailures\|RefusedReason\|MultiState\|Added\|Gate\|AssumeZero\)" = [^,}]*' | sort -u)
+    REG=$(ioreg -l -w0 2>/dev/null | grep -oE '"ITLAWDLCoex(Channel|OwnWidth|CountryLearned|CountryNotices|CountryAnswers|CountryFailures|RefusedReason|MultiState|Added|Gate|AssumeZero)" = [^,}]*' | sort -u)
     get() { printf '%s\n' "$REG" | sed -n "s/^\"ITLAWDLCoex$1\" = //p" | head -1 | tr -d '"'; }
     CH=$(get Channel); W=$(get OwnWidth); CL=$(get CountryLearned); ADDED=$(get Added)
     if [ -z "$ADDED" ]; then
