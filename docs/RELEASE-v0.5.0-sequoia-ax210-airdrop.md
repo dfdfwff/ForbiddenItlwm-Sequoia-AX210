@@ -20,6 +20,21 @@ investigated.
 iPhone Mirroring is not available because this machine does not have a T2
 security chip.
 
+## Known issues
+
+- **Mac → iPhone TX aggregation is not stable.** The iPhone ACKs the
+  driver's ADDBA request but does not reliably keep the reply/session in the
+  `agreed` state. Bulk traffic therefore often falls back to the single-frame
+  queue. A 108 MB test can complete successfully, but Mac → iPhone remains
+  noticeably slower than iPhone → Mac.
+- **The first AirDrop connection usually needs about five seconds.** Device
+  discovery, AWDL synchronization, Bonjour service resolution and QUIC setup
+  happen before file data moves.
+- **Fast iPhone → Mac throughput requires channel 149 at 80 MHz in the tested
+  environment.** Channel 6 at 20 MHz works but is much slower.
+- **iPhone Mirroring is unavailable** because the tested machine has no T2
+  security chip.
+
 ## Packages
 
 ```text
