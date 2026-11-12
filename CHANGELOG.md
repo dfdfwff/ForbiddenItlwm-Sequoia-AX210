@@ -9,6 +9,7 @@
   - **iMessage and push over Wi-Fi:** the link-quality fix from 0.2.0 now works on Sonoma too. Upstream's Sonoma release notes say iMessage doesn't work there out of the box.
   - **BTLEAdvFixup 0.9.0** has a Sonoma build, with `bluetoothd` patterns from Apple's 14.8.9 installer.
   - **Not tested on any hardware yet,** not even plain Wi-Fi. Testers wanted.
+- **Tested on the project's hackintosh (Tahoe 26.7.1, AX211):** the Tahoe build starts, and Wi-Fi, Bluetooth and AirDrop both ways work as before. The Sequoia and Sonoma builds and the fix for #14 and #16 still need testers.
 - **Sonoma uses older driver code for joining networks.** Those parts are fixed for this release: the key handler no longer writes Wi-Fi keys to the log, and it checks every length and index.
 - **Sequoia Bluetooth patterns checked on more builds.** BTLEAdvFixup's Sequoia patterns, taken from 15.8.3, also match `bluetoothd` from Apple's 15.8 and 15.8.2 installers, unchanged. 15.8.1 wasn't checked.
 - **`check_compat.sh`** recognises Sonoma 14.8.9 and checks its Bluetooth patterns.
