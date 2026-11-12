@@ -74,7 +74,7 @@ This is the main known problem. The time goes into the iPhone finding the Mac's 
 The kext can be loaded (`kmutil` lists it) while the driver itself failed to start.
 - **0.4.0 and 0.4.1 failed to start on some machines** (#14, #16). Use 0.5.0-test1 or later, or 0.3.x.
 - **Check the start result:** `ioreg -l -w0 | grep -E '"ItlwmStart'`. From 0.5.0, a failed start leaves `ItlwmStartResult` = `failed` and the driver's own messages in `ItlwmStartLog`. Attach both to an issue.
-- **Leftovers from an older AirportItlwm setup:** ForbiddenItlwm needs macOS's own Wi-Fi stack. Revert OpenCore Legacy Patcher's "Modern Wireless" root patches, and remove from config.plist any `Kernel → Block` entry for `com.apple.iokit.IOSkywalkFamily`, any injected `IOSkywalkFamily.kext` or `IO80211FamilyLegacy.kext`, and any other `AirportItlwm.kext` or `itlwm.kext`.
+- **Leftovers from an older AirportItlwm setup** (the cause in #14): ForbiddenItlwm needs macOS's own Wi-Fi stack. Revert OpenCore Legacy Patcher's "Modern Wireless" root patches, and remove from config.plist any `Kernel → Block` entry for `com.apple.iokit.IOSkywalkFamily`, any injected `IOSkywalkFamily.kext` or `IO80211FamilyLegacy.kext`, and any other `AirportItlwm.kext` or `itlwm.kext`.
 - **`MinKernel`/`MaxKernel`:** they must match the kext's macOS version (see [INSTALL.md](INSTALL.md)).
 
 ## Normal Wi-Fi stopped working

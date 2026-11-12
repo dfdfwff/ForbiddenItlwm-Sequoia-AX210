@@ -62,6 +62,7 @@ Users on Reddit and GitHub have reported:
 | Intel AX201 | macOS Sequoia 15.8.2, with 0.3.0-beta1 and 0.4.1-beta1: Wi-Fi works; with 0.4.1 each device lists the other, but transfers don't work yet (issue #7) |
 | Intel AX201 | macOS Sequoia 15.8, with 0.4.1-beta1: Wi-Fi works; the iPhone lists the Mac, but transfers don't work yet (issue #13) |
 | Intel AX201 (CNVi) | macOS Sequoia 15.8.3, with 0.3.0-beta1: Wi-Fi works, AirDrop transfers don't. 0.4.x didn't start (issue #16, fixed in 0.5.0) |
+| Intel AX210 (AMD Ryzen 7 5700X desktop) | macOS 26.7.3, with 0.5.0-test1: Wi-Fi and AirDrop work, listener on 149 at 80 MHz (issue #14) |
 | Intel AX411 class (AX1690i) | macOS 26.7.2, with 0.4.1-beta1: AirDrop works both ways, on channel 6 (issue #15) |
 
 The project hasn't verified these reports. The platforms, and which features were tried, vary between them.

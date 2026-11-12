@@ -20,7 +20,7 @@
 - **Diagnostics for open reports:**
   - **#7 and #13 (no `awdl0` on Sequoia):** the AirDrop interface records who opens and closes it in `ItlwmAWDLClientEvents`. On Sequoia it also records when `awdl0` is created and removed.
   - **#14 and #16 (Wi-Fi doesn't start):** if the driver fails to start, its messages stay on the Wi-Fi card's PCI entry as `ItlwmStartLog`, with `ItlwmStartResult`. Before, they were lost.
-- **Docs:** troubleshooting for a driver that doesn't start, for Sequoia transfers that stay on "Waiting", and for leftovers from older AirportItlwm setups; current user reports.
+- **Docs:** the OpenCore entries an old OCLP Wi-Fi setup leaves behind (#14) are now in the README requirements; troubleshooting for a driver that doesn't start, for Sequoia transfers that stay on "Waiting", and for leftovers from older AirportItlwm setups; current user reports.
 
 ## 0.4.1-beta1
 
