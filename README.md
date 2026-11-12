@@ -135,15 +135,37 @@ Wi-Fi 或蓝牙失效。请务必从 USB EFI 开始测试，并保留可回退�
 - [ForbiddenItlwm](https://github.com/retropineaple/ForbiddenItlwm)：本项目
   的直接上游，感谢其在原生 AWDL、PeerManager、Block Ack 和 Intel
   共存路径上的工作。
-- [AirportItlwm / itlwm](https://github.com/OpenIntelWireless/itlwm) 及
-  laobamac 的 AirportItlwm 分支：Intel Wi-Fi 驱动基础。
-- [OpenIntelWireless](https://github.com/OpenIntelWireless)：
-  IntelBluetoothFirmware 等项目。
-- [BrcmPatchRAM / BlueToolFixup](https://github.com/acidanthera/BrcmPatchRAM)：
-  蓝牙兼容支持。
-- [seemoo-lab/owl](https://github.com/seemoo-lab/owl) 和 Open Wireless Link：
-  AWDL 帧格式、调度和协议研究。
+- [itlwm / AirportItlwm](https://github.com/OpenIntelWireless/itlwm)：由
+  **zxystd** 和 OpenIntelWireless contributors 开发的 Intel Wi-Fi 驱动，
+  是本项目 Wi-Fi 代码的基础。
+- **laobamac**：macOS Tahoe/Sequoia 的 AirportItlwm 2.4.1 及原生 Sequoia
+  Wi-Fi 支持，是本分支的直接代码起点之一。
+- **kgp-macPro / AirportItlwm-Tahoe**：上游注明为 DMA 设计的重要基础。
+- [OpenBSD](https://www.openbsd.org)：`net80211` 以及 `iwx`、`iwm`、`iwn`
+  驱动。
+- [Linux iwlwifi](https://wireless.wiki.kernel.org/en/users/drivers/iwlwifi)
+  和 **Intel**：固件及实现参考。
+- [FranciumOS-org/AirPort_RTW89](https://github.com/FranciumOS-org/AirPort_RTW89)：
+  原生无线栈接入 AWDL 的架构参考和线格式交叉验证。
+- [seemoo-lab/owl](https://github.com/seemoo-lab/owl) 与 Open Wireless Link：
+  AWDL 协议逆向、帧格式、信道序列、同步窗口与调度研究。特别感谢
+  **Milan Stute、David Kreitschmann、Matthias Hollick** 的工作，包括
+  *One Billion Apples' Secret Sauce: Recipe for the Apple Wireless Direct
+  Link Ad hoc Protocol*（MobiCom 2018）及相关 AWDL 安全研究。
+- [Acidanthera](https://github.com/acidanthera)：**Lilu**、**MacKernelSDK**
+  和 **BlueToolFixup**；BTLEAdvFixup 的页面 hook 参考 BlueToolFixup。
+- [IntelBluetoothFirmware / IntelBTPatcher](https://github.com/OpenIntelWireless/IntelBluetoothFirmware)：
+  BTLEAdvFixup 的 HCI hook 参考 IntelBTPatcher。
+- [BrcmPatchRAM](https://github.com/acidanthera/BrcmPatchRAM)：BlueToolFixup
+  所属项目及蓝牙兼容补丁基础。
+- **Apple XNU / IO80211**：作为接口、生命周期和网络栈行为的只读参考。
+
+本项目与 Apple、Intel 无隶属或背书关系。AirDrop 是 Apple Inc. 的商标。
 
 ## License
 
-本项目继续遵循上游的 **GPL-2.0** 许可证。详见 [LICENSE](LICENSE)。
+- **Wi-Fi 驱动：** GPL-2.0，详见 [LICENSE](LICENSE)。来自 OpenBSD 的文件
+  保留其 ISC/BSD 声明。
+- **BTLEAdvFixup：** GPL-3.0-only，详见
+  [BTLEAdvFixup/LICENSE](BTLEAdvFixup/LICENSE)。
+- **Intel firmware：** 遵循 `itlwm/firmware` 中的 Intel 再分发许可。

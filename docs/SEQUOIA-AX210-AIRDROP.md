@@ -98,10 +98,19 @@ or loss of Wi-Fi and Bluetooth.
 
 ## Credits
 
-- laobamac and the AirportItlwm / itlwm contributors
 - retropineaple and the ForbiddenItlwm contributors
-- OpenIntelWireless
-- acidanthera BrcmPatchRAM / BlueToolFixup
-- seemoo-lab OWL and the Open Wireless Link research
+- zxystd and the OpenIntelWireless itlwm / AirportItlwm contributors
+- laobamac for the macOS Tahoe/Sequoia AirportItlwm 2.4.1 code
+- kgp-macPro / AirportItlwm-Tahoe for the DMA design referenced upstream
+- OpenBSD for net80211, iwx, iwm and iwn
+- Linux iwlwifi and Intel for firmware and implementation references
+- FranciumOS-org/AirPort_RTW89 for the native AWDL integration approach
+- Acidanthera for Lilu, MacKernelSDK and BlueToolFixup
+- OpenIntelWireless IntelBluetoothFirmware / IntelBTPatcher for the HCI hook
+- seemoo-lab OWL and the Open Wireless Link research, especially Milan Stute,
+  David Kreitschmann and Matthias Hollick's AWDL reverse-engineering work and
+  *One Billion Apples' Secret Sauce: Recipe for the Apple Wireless Direct Link
+  Ad hoc Protocol* (MobiCom 2018)
 
-The upstream `LICENSE` remains in force.
+The Wi-Fi driver remains GPL-2.0. BTLEAdvFixup is GPL-3.0-only, and Intel
+firmware keeps its own redistribution licence.

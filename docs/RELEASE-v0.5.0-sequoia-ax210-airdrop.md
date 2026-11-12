@@ -54,3 +54,29 @@ Bluetooth.
 See `README.md` inside the archive for boot arguments and the Sequoia pool-type
 fix. The stable source is branch `sequoia-ax210-airdrop`. The unverified
 ADDBA A-MSDU experiment is isolated on `experiment/addba-amsdu`.
+
+## Credits
+
+This build is based on the work of:
+
+- retropineaple and the ForbiddenItlwm contributors
+- zxystd and the OpenIntelWireless itlwm / AirportItlwm contributors
+- laobamac for AirportItlwm 2.4.1 on Tahoe and Sequoia
+- kgp-macPro / AirportItlwm-Tahoe for the upstream DMA design reference
+- OpenBSD for net80211 and the iwx, iwm and iwn drivers
+- Linux iwlwifi and Intel for firmware and implementation references
+- FranciumOS-org/AirPort_RTW89 for the native AWDL integration approach
+- Acidanthera for Lilu, MacKernelSDK and BlueToolFixup
+- OpenIntelWireless for IntelBluetoothFirmware / IntelBTPatcher
+
+AWDL framing, channel sequencing, synchronization windows and scheduling come
+from the reverse-engineering work published by Open Wireless Link, especially
+Milan Stute, David Kreitschmann and Matthias Hollick:
+
+- *One Billion Apples' Secret Sauce: Recipe for the Apple Wireless Direct Link
+  Ad hoc Protocol*, MobiCom 2018.
+- The Open Wireless Link project and `seemoo-lab/owl`.
+
+See the repository README for the complete attribution list. The Wi-Fi driver
+remains GPL-2.0, BTLEAdvFixup is GPL-3.0-only, and Intel firmware keeps its
+own redistribution licence.
