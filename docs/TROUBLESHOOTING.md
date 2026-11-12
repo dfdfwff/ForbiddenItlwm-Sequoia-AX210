@@ -23,7 +23,7 @@ The driver's log doesn't reach the unified log, so its state is only in the I/O 
 ## `ItlwmAWDLBuildCheck` says blocked
 
 The driver only starts AirDrop on macOS builds whose Wi-Fi stack was checked: Tahoe 26.7.1 to 26.7.3, Sequoia 15.8 to 15.8.3 (15.8.2 shares 15.8.3's kernel; 15.8.1 starts as "expected"), and Sonoma 14.8.9.
-- **Nothing at all, and no ForbiddenItlwm keys:** check that you used the kexts for your macOS version. A ForbiddenItlwm built for the other version refuses to start, and logs `this kext is for macOS …`.
+- **Nothing at all, and no ForbiddenItlwm keys:** check that you used the kexts for your macOS version. A ForbiddenItlwm built for another macOS version refuses to start, and logs `this kext is for macOS …`.
 - **`blocked: unverified macOS build`:** your build isn't on the list yet. Normal Wi-Fi still works. Please open an issue with your build (`sw_vers -buildVersion`) so it can be checked. `-itlawdlanybuild` forces AirDrop on anyway, at the risk of a kernel panic.
 - **`blocked: IO80211AWDLProtocol table differs`:** the Wi-Fi stack isn't the one the driver was checked against. If you applied OpenCore Legacy Patcher's "Modern Wireless" root patches, revert them. Otherwise Apple changed the part of its Wi-Fi stack the driver plugs into. Starting AirDrop would likely panic, so no flag overrides this. Please report your build.
 
@@ -46,6 +46,18 @@ The firmware opens channel 149 only after a nearby network tells it the country.
   1. Restart the iPhone.
   2. Settings → General → Transfer or Reset iPhone → Reset → Reset Network Settings. This forgets saved Wi-Fi networks.
   3. As a last resort, back up the iPhone and factory reset it. Afterwards the iPhone is a new device to AirDrop: Contacts Only won't match until it's signed in to its Apple Account again and has synced, so use Everyone for 10 Minutes meanwhile. Finder may list it twice for a while.
+
+## Sequoia: the devices list each other, but transfers stay on "Waiting"
+
+This is a known open problem on Sequoia ([#7](https://github.com/retropineaple/ForbiddenItlwm/issues/7), [#13](https://github.com/retropineaple/ForbiddenItlwm/issues/13)). macOS never finishes setting up `awdl0`, so it never gives the driver the frame template it needs to send: `ItlwmAWDLSyncProbeStage` stays `snapshot-not-ready`, and `ifconfig awdl0` says the interface doesn't exist. From 0.5.0 the driver records what happens to the interface. Please add these to #13:
+
+```bash
+ifconfig awdl0
+```
+
+```bash
+ioreg -w0 -r -c ItlAWDLInterface -d 1 -l | grep -E 'ItlwmAWDLClientEvent|BSD Name'
+```
 
 ## The first iPhone → Mac send is slow to connect, or sits on "Waiting"
 

@@ -21,7 +21,7 @@ Kexts used with ForbiddenItlwm:
 | Kext | Version |
 | --- | --- |
 | ForbiddenItlwm | 0.1.0-beta1, 0.2.0-beta1, 0.4.0-beta1's changes in development builds, and 0.5.0-test1 (Tahoe) |
-| BTLEAdvFixup | 0.8.0, and 0.8.2's changes in a development build |
+| BTLEAdvFixup | 0.8.0, 0.8.2's changes in a development build, and 0.9.0 (Tahoe) |
 | Lilu | 1.7.2 |
 | IntelBluetoothFirmware | 2.5.1 |
 | BlueToolFixup | 2.7.3 |
@@ -51,7 +51,7 @@ The laptop also loads kexts for its own hardware (graphics, audio, touchscreen, 
 
 ## User reports
 
-Users on Reddit have reported the Tahoe kext working on macOS 26.7.1 with these cards:
+Users on Reddit and GitHub have reported:
 
 | Card | Reported on |
 | --- | --- |

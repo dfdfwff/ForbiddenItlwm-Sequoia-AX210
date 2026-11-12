@@ -6,7 +6,7 @@ This beta has been tested on one hackintosh: an HP Envy x360 13-bf with an Intel
 
 - **Check your macOS build:** `sw_vers -buildVersion`.
   - **Tahoe:** `25G241`, `25G332` or `25G342`. Use the Tahoe kexts.
-  - **Sequoia:** `24H23` (15.8) and `24H241` (15.8.3) were checked offline, and `24H232` (15.8.2) has 15.8.3's kernel; `24H32` (15.8.1) is expected to work. Use the Sequoia kexts. Sequoia isn't confirmed working on hardware yet.
+  - **Sequoia:** `24H23` (15.8) and `24H241` (15.8.3) were checked offline, and `24H232` (15.8.2) has 15.8.3's kernel; `24H32` (15.8.1) is expected to work. Use the Sequoia kexts. Users report Wi-Fi working on Sequoia, but AirDrop transfers don't work there yet.
   - **Sonoma (test build):** `23J631` (14.8.9) was checked offline. Use the Sonoma kexts. On other Sonoma 14.4+ builds the Sonoma kext runs as plain Wi-Fi.
   - On any other build the driver keeps AirDrop off and works as plain Wi-Fi.
 - **Use the kexts for your macOS version.** ForbiddenItlwm and BTLEAdvFixup are built separately for Tahoe, Sequoia and Sonoma. A ForbiddenItlwm built for the other version refuses to start, and BTLEAdvFixup's patterns won't match.
@@ -19,8 +19,8 @@ This beta has been tested on one hackintosh: an HP Envy x360 13-bf with an Intel
 
 | Kext | Where from | Notes |
 | --- | --- | --- |
-| `ForbiddenItlwm.kext` | This repository, Tahoe or Sequoia build | Replaces `AirportItlwm.kext` |
-| `BTLEAdvFixup.kext` | This repository, Tahoe or Sequoia build | Lets macOS start Bluetooth LE advertising on an Intel controller |
+| `ForbiddenItlwm.kext` | This repository, Tahoe, Sequoia or Sonoma build | Replaces `AirportItlwm.kext` |
+| `BTLEAdvFixup.kext` | This repository, Tahoe, Sequoia or Sonoma build | Lets macOS start Bluetooth LE advertising on an Intel controller |
 | `Lilu.kext` | [acidanthera/Lilu](https://github.com/acidanthera/Lilu) | Tested with 1.7.2 |
 | `IntelBluetoothFirmware.kext` | [OpenIntelWireless/IntelBluetoothFirmware](https://github.com/OpenIntelWireless/IntelBluetoothFirmware) | Tested with 2.5.1 |
 | `BlueToolFixup.kext` | [acidanthera/BrcmPatchRAM](https://github.com/acidanthera/BrcmPatchRAM) | Tested with 2.7.3 |
@@ -109,7 +109,7 @@ All of this goes on the **USB stick's** EFI.
 
 1. Boot from the USB stick.
 2. Join your normal Wi-Fi network as usual.
-3. Wait a minute, then check that the driver and its AirDrop listener are running:
+3. Wait a minute, then check that the driver and its AirDrop listener are running. If Wi-Fi is off or greyed out, see [TROUBLESHOOTING.md](TROUBLESHOOTING.md#wi-fi-is-off-or-greyed-out-and-theres-no-en0).
 
    ```bash
    ioreg -l -w0 | grep -E '"ItlwmAWDL(InterfaceBuild|BuildCheck)"|"ITLAWDLCoex(Added|Channel|CountryLearned)"'

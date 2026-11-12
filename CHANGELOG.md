@@ -14,12 +14,13 @@
 - **Sequoia Bluetooth patterns checked on more builds.** BTLEAdvFixup's Sequoia patterns, taken from 15.8.3, also match `bluetoothd` from Apple's 15.8 and 15.8.2 installers, unchanged. 15.8.1 wasn't checked.
 - **`check_compat.sh`** recognises Sonoma 14.8.9 and checks its Bluetooth patterns.
 - **Fixed: Wi-Fi didn't start on some machines with 0.4.0 and 0.4.1 (#14, #16).** 0.4.0 read the card's MSI settings from the wrong place, so on some machines the driver stopped right after starting and Wi-Fi stayed off or greyed out. 0.3.x wasn't affected.
-- **Channel 149 where the firmware marks it passive (#11).** In some countries (China, for example) the card's firmware marks channels 149 to 161 as passive, so the AirDrop listener fell back to channel 6 at 20 MHz. Now, as on Linux, once the hackintosh has heard a Wi-Fi network's beacon on those channels, the listener can use 149 at 80 MHz. These hints are cleared when the country changes.
+- **Channel 149 where the firmware marks it passive (#11, #15).** In some countries (China, for example) the card's firmware marks channels 149 to 161 as passive, so the AirDrop listener fell back to channel 6 at 20 MHz. Now, as on Linux, once the hackintosh has heard a Wi-Fi network's beacon on those channels, the listener can use 149 at 80 MHz. These hints are cleared when the country changes.
   - New keys: `ITLAWDLCoexBeaconHints`, and `ITLAWDLCoexBaTxStateName`, which names the block-ack state (`asking` isn't `agreed`).
 - **Firmware messages are length-checked on every card family.** Before reading a message from the card's firmware, the driver checks it fits: AX200 and newer, the 7000 to 9000 series, and the older 1000 to 6000 series. The build also adds a stack protector and zero-fills local variables.
-- **Diagnostics for two open reports:**
-  - **#13 (no `awdl0` on Sequoia):** the AirDrop interface records who opens and closes it in `ItlwmAWDLClientEvents`. On Sequoia it also records when `awdl0` is created and removed.
-  - **#14 (Wi-Fi doesn't start):** if the driver fails to start, its messages stay on the Wi-Fi card's PCI entry as `ItlwmStartLog`. Before, they were lost.
+- **Diagnostics for open reports:**
+  - **#7 and #13 (no `awdl0` on Sequoia):** the AirDrop interface records who opens and closes it in `ItlwmAWDLClientEvents`. On Sequoia it also records when `awdl0` is created and removed.
+  - **#14 and #16 (Wi-Fi doesn't start):** if the driver fails to start, its messages stay on the Wi-Fi card's PCI entry as `ItlwmStartLog`, with `ItlwmStartResult`. Before, they were lost.
+- **Docs:** troubleshooting for a driver that doesn't start, for Sequoia transfers that stay on "Waiting", and for leftovers from older AirportItlwm setups; current user reports.
 
 ## 0.4.1-beta1
 
