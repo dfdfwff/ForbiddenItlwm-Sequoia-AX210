@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.4.1-beta1
+
+- **Sequoia: BTLEAdvFixup now actually starts.** Every earlier Sequoia build of BTLEAdvFixup told Lilu it was for Tahoe, and Lilu disables a plugin on any other macOS. So on Sequoia it never ran: `bluetoothd` wasn't patched, the IntelBTPatcher replacement wasn't active, and iPhones couldn't find the hackintosh over Bluetooth. BTLEAdvFixup 0.8.3 declares the macOS version it's built for. Sequoia users should update BTLEAdvFixup; the Tahoe build behaves as before.
+- **Nothing else changed.** ForbiddenItlwm is rebuilt from the same code with the new version number.
+
 ## 0.4.0-beta1
 
 Everything from the 0.3.1-test1 test build (below), plus:

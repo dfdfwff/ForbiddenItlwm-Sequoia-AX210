@@ -167,8 +167,15 @@ PluginConfiguration ADDPR(config) {
     bootargOff, arrsize(bootargOff),
     bootargDebug, arrsize(bootargDebug),
     bootargBeta, arrsize(bootargBeta),
+    // Lilu disables a plugin outside this range. Each build declares only its own macOS version:
+    // before 0.8.3 the Sequoia build declared Tahoe here too, so Lilu never started it on Sequoia.
+#if defined(BTLEADV_SEQUOIA)
+    KernelVersion::Sequoia,
+    KernelVersion::Sequoia,
+#else
     KernelVersion::Tahoe,
     KernelVersion::Tahoe,
+#endif
     []() {
         // Off unless asked for, so this kext can sit in the EFI doing nothing.
         if (!checkKernelArgument("-btleadv"))
@@ -204,7 +211,7 @@ extern kern_return_t _start(kmod_info_t *, void *);
 extern kern_return_t _stop(kmod_info_t *, void *);
 extern kern_return_t BTLEAdvFixup_kern_start(kmod_info_t *, void *);
 extern kern_return_t BTLEAdvFixup_kern_stop(kmod_info_t *, void *);
-__attribute__((visibility("default"))) KMOD_EXPLICIT_DECL(org.forbiddenitlwm.BTLEAdvFixup, "0.8.2", _start, _stop)
+__attribute__((visibility("default"))) KMOD_EXPLICIT_DECL(org.forbiddenitlwm.BTLEAdvFixup, "0.8.3", _start, _stop)
 __attribute__((visibility("hidden"))) kmod_start_func_t *_realmain = BTLEAdvFixup_kern_start;
 __attribute__((visibility("hidden"))) kmod_stop_func_t *_antimain = BTLEAdvFixup_kern_stop;
 __attribute__((visibility("hidden"))) int _kext_apple_cc = __APPLE_CC__;
