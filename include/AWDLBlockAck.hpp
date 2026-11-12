@@ -93,9 +93,7 @@ inline size_t buildAddbaRequest(uint8_t *out, size_t capacity, const uint8_t *pe
     out[24] = 3;
     out[25] = 0;
     out[26] = token;
-    // Apple's AWDL peers expect the standard A-MSDU-supported capability.
-    // Without bit 0 they ACK the request but do not send an ADDBA response.
-    const uint16_t params = uint16_t(1U | 2U | unsigned(tid) << 2 | unsigned(window) << 6);
+    const uint16_t params = uint16_t(2U | unsigned(tid) << 2 | unsigned(window) << 6);
     out[27] = uint8_t(params);
     out[28] = uint8_t(params >> 8);
     // Bytes 29 and 30 are timeout 0.

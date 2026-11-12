@@ -103,11 +103,10 @@ static void testBlockAckSend() {
     assert(!buildAddbaRequest(q,sizeof(q)-1,peer,own,bssid,1,0,64,0,1));
     assert(!buildAddbaRequest(q,sizeof(q),peer,own,bssid,1,8,64,0,1));
     assert(buildAddbaRequest(q,sizeof(q),peer,own,bssid,0x5a,3,64,100,7)==33 && isAddbaFrame(q,33));
-    assert((q[27] & 1U) != 0); // A-MSDU supported
     assert(q[0]==0xd0 && !memcmp(q+4,peer,6) && !memcmp(q+10,own,6) && !memcmp(q+16,bssid,6));
     assert(q[24]==3 && !q[25] && q[26]==0x5a && (q[22]|q[23]<<8)==7<<4);
     const unsigned p=q[27]|q[28]<<8;
-    assert((p&1) && (p&2) && ((p>>2)&15)==3 && p>>6==64 && !q[29] && !q[30] && (q[31]|q[32]<<8)==100<<4);
+    assert(!(p&1) && (p&2) && ((p>>2)&15)==3 && p>>6==64 && !q[29] && !q[30] && (q[31]|q[32]<<8)==100<<4);
     // Read as the peer would, it's our request.
     AddbaRequest r;
     assert(parseAddbaRequest(q,33,peer,&r) && r.token==0x5a && r.tid==3 && r.window==64 && r.ssn==100 && r.immediate);

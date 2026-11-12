@@ -4,11 +4,24 @@
 
 <p align="center"><em>Because AirDrop was never supposed to work on Intel Wi-Fi.</em></p>
 
+> **dfdfwff Sequoia AX210 build:** Two-way AirDrop and Continuity Camera were
+> verified on macOS Sequoia 15.8.1 with an Intel AX210. The missing Sequoia
+> piece was the Skywalk packet-buffer pool type. See
+> [docs/SEQUOIA-AX210-AIRDROP.md](docs/SEQUOIA-AX210-AIRDROP.md) and the
+> `sequoia-ax210-airdrop` branch. Use a USB EFI first. The stable package is
+> `ForbiddenItlwm 0.5.0` SHA-256
+> `497ec376fa1dc3cb658e7e7110d9de958d5f7ad44814e40fede072fc3b3f4e76`.
+
 **AirDrop for Intel Wi-Fi cards on macOS.** ForbiddenItlwm is a fork of AirportItlwm that adds AWDL, the peer-to-peer Wi-Fi link AirDrop runs on. Apple's own Wi-Fi stack does the rest. Normal Wi-Fi stays connected while AirDrop works.
 
 It supports macOS Tahoe 26.7.x and, from 0.3.0, macOS Sequoia 15.8.x. A test build adds macOS Sonoma 14.8.9. **Each macOS version has its own kexts:** download the ones for your macOS.
 
-> **Status: public beta. Newest release: 0.5.0-test1 (test build). Experimental.** The project tests on one machine with one card (Intel AX211) on macOS 26.7.1 (25G241): an HP Envy x360 13-bf with an iPhone 11. Users report AirDrop working on 26.7.2 and 26.7.3 too. **On Sequoia, testers report working Wi-Fi, but AirDrop transfers don't work yet** (#7, #13), and testers are needed. See [where it was tested](docs/TESTED-HARDWARE.md). Expect rough edges. Test it from a USB stick first, never from your only working EFI.
+> **Status in this fork: Sequoia AX210 AirDrop verified.** On macOS Sequoia
+> 15.8.1 with an Intel AX210, Wi-Fi, two-way AirDrop and Continuity Camera are
+> working. Mac to iPhone is usable but still slower because Sequoia TX
+> aggregation is under development. The upstream project is a public beta and
+> was primarily tested with an AX211 on Tahoe. Test any build from a USB stick
+> first, never from your only working EFI.
 
 > **Check for new releases regularly.** Testers keep finding bugs, and fixes are released often. Before you report a problem, update to the newest version on the [releases page](https://github.com/retropineaple/ForbiddenItlwm/releases). To be notified, use **Watch → Custom → Releases** at the top of this page.
 
@@ -58,7 +71,7 @@ Tested with the same hackintosh and iPhone, on Tahoe 26.7.1:
 | Universal Clipboard | Works |
 | iMessage and other push-based services over Wi-Fi | Work (fixed in 0.2.0: the original Tahoe driver left Wi-Fi rated "off", so Apple Push never connected) |
 | Instant Hotspot | Doesn't work yet |
-| Continuity Camera | Doesn't work yet |
+| Continuity Camera | **Works on the Sequoia AX210 build documented in this fork** |
 | iPhone Mirroring | Doesn't work. Probably can't without a T2 chip or Apple silicon |
 | Sidecar | Not tried yet |
 
@@ -73,7 +86,7 @@ Tested with the same hackintosh and iPhone, on Tahoe 26.7.1:
   | Tahoe | 26.7.2 (25G332) | Reported working by a user (AX210). Wi-Fi side verified offline from Apple's Kernel Debug Kit. BTLEAdvFixup's patterns are the same bytes as 26.7.3's |
   | Sequoia | 15.8 (24H23), 15.8.3 (24H241) | Wi-Fi side verified offline from Apple's Kernel Debug Kits, BTLEAdvFixup's patterns from Apple's installers. Users report Wi-Fi working; AirDrop transfers don't work yet ([#13](https://github.com/retropineaple/ForbiddenItlwm/issues/13)) |
   | Sequoia | 15.8.2 (24H232) | Same kernel as 15.8.3, so the build check passes. BTLEAdvFixup's patterns match. One user report (AX201): Wi-Fi works and each device lists the other, but transfers don't work yet ([issue #7](https://github.com/retropineaple/ForbiddenItlwm/issues/7)) |
-  | Sequoia | 15.8.1 (24H32) | Expected to work (same kernel family), not checked offline. BTLEAdvFixup's patterns weren't checked, but match the builds before and after it |
+| Sequoia | 15.8.1 (24H32) | **Verified on AX210 by this fork:** Wi-Fi, two-way AirDrop and Continuity Camera. See the [validation record](docs/SEQUOIA-AX210-AIRDROP.md) |
   | Sonoma | 14.8.9 (23J631) | Test build 0.5.0-test1. Wi-Fi side verified offline from Apple's Kernel Debug Kit, BTLEAdvFixup's patterns from Apple's installer. Not tested on hardware yet |
   | Sonoma | Other 14.4 to 14.8.x builds | The Sonoma kext runs as plain Wi-Fi; AirDrop stays off |
   | Any other build | | AirDrop stays off and normal Wi-Fi works |
