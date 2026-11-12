@@ -7,7 +7,7 @@
 //
 #include "AirportItlwmV2.hpp"
 #include "AirportItlwmSkywalkInterface.hpp"
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
 #include "AirportAWDLInterface.hpp"
 #endif
 #include <sys/CTimeout.hpp>
@@ -199,7 +199,7 @@ void AirportItlwmSkywalkInterface::setPTK(const u_int8_t *key, size_t key_len) {
         
         /* check that key length matches that of pairwise cipher */
         keylen = ieee80211_cipher_keylen(ni->ni_rsncipher);
-        if (key_len != keylen) {
+        if (keylen < 0 || key_len != (size_t)keylen) {
             XYLog("PTK length mismatch. expected %d, got %zu\n", keylen, key_len);
             return;
         }
@@ -236,13 +236,13 @@ void AirportItlwmSkywalkInterface::setGTK(const u_int8_t *gtk, size_t key_len, u
     if (gtk != NULL) {
         /* check that key length matches that of group cipher */
         keylen = ieee80211_cipher_keylen(ni->ni_rsngroupcipher);
-        if (key_len != keylen) {
+        if (keylen < 0 || key_len != (size_t)keylen) {
             XYLog("GTK length mismatch. expected %d, got %zu\n", keylen, key_len);
             return;
         }
         /* map GTK to 802.11 key */
         k = &ic->ic_nw_keys[kid];
-        if (k->k_cipher == IEEE80211_CIPHER_NONE || k->k_len != keylen || memcmp(k->k_key, gtk, keylen) != 0) {
+        if (k->k_cipher == IEEE80211_CIPHER_NONE || k->k_len != (u_int)keylen || memcmp(k->k_key, gtk, keylen) != 0) {
             memset(k, 0, sizeof(*k));
             k->k_id = kid;    /* 0-3 */
             k->k_cipher = ni->ni_rsngroupcipher;
@@ -339,7 +339,7 @@ setVIRTUAL_IF_CREATE(apple80211_virt_if_create_data *data)
     memcpy(address.octet, data->mac, sizeof(address.octet));
     const bool attached = instance->attachVirtualInterface(&instance->fAWDLInterface, &address, data->role, false);
     IOReturn result = attached ? kIOReturnSuccess : kIOReturnError;
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
     if (attached) {
         result = static_cast<ItlAWDLInterface *>(instance->fAWDLInterface)->initializeNetwork(
             instance, instance->getWorkQueue(), address);
@@ -552,7 +552,7 @@ getMCS_INDEX_SET(struct apple80211_mcs_index_set_data *ad)
         memset(ad, 0, sizeof(*ad));
         ad->version = APPLE80211_VERSION;
         size_t size = min(ARRAY_SIZE(ic->ic_bss->ni_rxmcs), ARRAY_SIZE(ad->mcs_set_map));
-        for (int i = 0; i < size; i++)
+        for (size_t i = 0; i < size; i++)
             ad->mcs_set_map[i] = ic->ic_bss->ni_rxmcs[i];
         return kIOReturnSuccess;
     }
@@ -679,7 +679,7 @@ getRATE_SET(struct apple80211_rate_set_data *ad)
         ad->version = APPLE80211_VERSION;
         ad->num_rates = ic->ic_bss->ni_rates.rs_nrates;
         size_t size = min(ic->ic_bss->ni_rates.rs_nrates, ARRAY_SIZE(ad->rates));
-        for (int i=0; i < size; i++) {
+        for (size_t i=0; i < size; i++) {
 #ifdef AIRPORT_WCL
             struct apple80211_rate &apple_rate = ad->rates[i];
 #else
@@ -1116,8 +1116,9 @@ static int convertNodeToScanResult(ItlHalService *fHalService, struct ieee80211_
     bzero(result, sizeof(*result));
     result->version = APPLE80211_VERSION;
     if (fNextNodeToSend->ni_rsnie_tlv && fNextNodeToSend->ni_rsnie_tlv_len > 0) {
-        result->asr_ie_len = fNextNodeToSend->ni_rsnie_tlv_len;
-        memcpy(result->asr_ie_data, fNextNodeToSend->ni_rsnie_tlv, MIN(result->asr_ie_len, sizeof(result->asr_ie_data)));
+        size_t ielen = MIN((size_t)fNextNodeToSend->ni_rsnie_tlv_len, sizeof(result->asr_ie_data));
+        result->asr_ie_len = (int16_t)ielen;
+        memcpy(result->asr_ie_data, fNextNodeToSend->ni_rsnie_tlv, ielen);
     } else {
         result->asr_ie_len = 0;
     }
@@ -1209,5 +1210,40 @@ IOReturn AirportItlwmSkywalkInterface::setMacAddress(mloAddrArray &addresses)
 IOReturn AirportItlwmSkywalkInterface::getHW_ADDR(apple80211_hw_mac_address *)
 {
     return kIOReturnUnsupported;
+}
+#endif
+
+#ifndef AIRPORT_WCL
+// Sonoma has no WCL, but the same metric matters: without it en0's link quality stays "off" (-2),
+// apsd won't connect push over Wi-Fi, and iMessage fails (upstream's Sonoma release notes say as
+// much). IOSkywalkNetworkInterface::reportLinkQuality is exported by 23J631's IOSkywalkFamily.
+extern "C" IOReturn itlReportLinkQualitySonoma(IOSkywalkNetworkInterface *, unsigned int)
+    __asm__("__ZN25IOSkywalkNetworkInterface17reportLinkQualityEj");
+
+void AirportItlwmSkywalkInterface::postLinkQuality()
+{
+    struct ieee80211com *ic = fHalService ? fHalService->get80211Controller() : nullptr;
+    if (!ic)
+        return;
+    // The kernel's IFNET_LQM_THRESH_* values: off -2, bad 10, poor 50, good 100.
+    const bool up = ic->ic_state == IEEE80211_S_RUN && ic->ic_bss && ic->ic_bss->ni_port_valid;
+    int32_t quality = -2;
+    if (up) {
+        if (++linkQualityTicks % 2)
+            return;
+        apple80211_rssi_data rssi = {};
+        if (getRSSI(&rssi) != kIOReturnSuccess || rssi.aggregate_rssi >= 0)
+            return;
+        quality = rssi.aggregate_rssi >= -70 ? 100 : rssi.aggregate_rssi >= -80 ? 50 : 10;
+        if (quality == linkQualityReported)
+            return;
+    } else if (!linkQualityReported) {
+        return;   // already off, or never reported
+    }
+    const IOReturn result = itlReportLinkQualitySonoma(static_cast<IOSkywalkNetworkInterface *>(this), uint32_t(quality));
+    if (result == kIOReturnSuccess)
+        linkQualityReported = up ? quality : 0;
+    setProperty("ItlwmLinkQuality", uint64_t(uint32_t(quality)), 32);
+    setProperty("ItlwmLinkQualityResult", uint64_t(uint32_t(result)), 32);
 }
 #endif

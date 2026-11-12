@@ -59,7 +59,10 @@ Users on Reddit have reported the Tahoe kext working on macOS 26.7.1 with these 
 | Intel AX211, on other machines than the test laptop | macOS 26.7.1 |
 | Intel AX210 (desktop, Intel NUC8) | macOS 26.7.2, with 0.3.1-test1 (issue #8) |
 | Intel AX210 | macOS 26.7.3, with 0.3.1-test1 (issue #5) |
-| Intel AX201 | macOS Sequoia 15.8.2, with 0.3.0-beta1: the Mac sees the iPhone, but sending doesn't work yet (issue #7) |
+| Intel AX201 | macOS Sequoia 15.8.2, with 0.3.0-beta1 and 0.4.1-beta1: Wi-Fi works; with 0.4.1 each device lists the other, but transfers don't work yet (issue #7) |
+| Intel AX201 | macOS Sequoia 15.8, with 0.4.1-beta1: Wi-Fi works; the iPhone lists the Mac, but transfers don't work yet (issue #13) |
+| Intel AX201 (CNVi) | macOS Sequoia 15.8.3, with 0.3.0-beta1: Wi-Fi works, AirDrop transfers don't. 0.4.x didn't start (issue #16, fixed in 0.5.0) |
+| Intel AX411 class (AX1690i) | macOS 26.7.2, with 0.4.1-beta1: AirDrop works both ways, on channel 6 (issue #15) |
 
 The project hasn't verified these reports. The platforms, and which features were tried, vary between them.
 
@@ -67,6 +70,7 @@ The project hasn't verified these reports. The platforms, and which features wer
 
 - Other Intel cards, and other laptops with an AX211, beyond the user reports above
 - Other macOS builds, and 26.7.2 and 26.7.3 on the project's own hackintosh
-- **macOS Sequoia on the project's own hackintosh.** The Sequoia build was verified offline from the 15.8 and 15.8.3 Kernel Debug Kits, and the one user report so far (above) isn't working yet
+- **macOS Sequoia on the project's own hackintosh.** The Sequoia build was verified offline from the 15.8 and 15.8.3 Kernel Debug Kits, and in the user reports so far (above) Wi-Fi works but AirDrop transfers don't yet
+- **macOS Sonoma (test build).** Verified offline from the 14.8.9 Kernel Debug Kit; nobody has booted it yet
 - iPads, other iPhones, other Macs
 - Sleep and wake during a transfer, and long-term stability

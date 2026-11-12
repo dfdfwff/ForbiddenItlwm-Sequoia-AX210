@@ -6,7 +6,7 @@
 //  1. The running kernel is one whose IO80211Family and IOSkywalkFamily were verified (AWDLBuildGuard.hpp).
 //  2. Apple's IO80211AWDLProtocol virtual table, which ItlAWDLInterface subclasses slot for slot,
 //     still has the expected functions at spread-out anchor slots, its own pure methods where
-//     expected, and ends where expected (568 slots on Tahoe, 563 on Sequoia). This catches a changed
+//     expected, and ends where expected (568 slots on Tahoe, 563 on Sequoia, 547 on Sonoma). This catches a changed
 //     table on any build.
 //  -itlawdlanybuild skips check 1 (never check 2). When AWDL may not start, the driver behaves like
 //  plain AirportItlwm: normal Wi-Fi works and nothing AWDL-related is created or sent.
@@ -16,8 +16,8 @@
 #include <libkern/version.h>
 #include <AWDLBuildGuard.hpp>
 
-#if !(defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2))
-// AirDrop isn't ported to this macOS version yet (Sonoma): the driver is plain Wi-Fi, and nothing here
+#if !defined(ITL_AWDL_NATIVE)
+// A target without the AirDrop port: the driver is plain Wi-Fi, and nothing here
 // may reference Apple's AWDL classes, which this kext would then need at load time.
 bool itlAWDLBuildAllowed() { return false; }
 bool itlAWDLBuildVerified() { return false; }
@@ -30,7 +30,7 @@ void itlAnchorAWDLProtocolD1() __asm__("__ZN19IO80211AWDLProtocolD1Ev");
 void itlAnchorWakeFlags() __asm__("__ZN25IOSkywalkNetworkInterface21getSupportedWakeFlagsEPj");
 void itlAnchorInterfaceCCA() __asm__("__ZN23IO80211SkywalkInterface15setInterfaceCCAE18apple80211_channeli");
 void itlAnchorStatsDump() __asm__("__ZN23IO80211SkywalkInterface9statsDumpEv");
-#ifdef ITL_AWDL_GUARD_SEQUOIA
+#if defined(ITL_AWDL_GUARD_SEQUOIA) || defined(ITL_AWDL_GUARD_SONOMA)
 void itlAnchorVirtualInit() __asm__("__ZN23IO80211VirtualInterface4initEP17IO80211ControllerP10ether_addrjPKc");
 #else
 void itlAnchorSyncDPSStats() __asm__("__ZN23IO80211SkywalkInterface12syncDPSStatsEP26apple82011_postMessage_dps");
@@ -52,7 +52,20 @@ bool vtableMatches()
 {
     const uintptr_t *slots = itlNativeAWDLProtocolVtable + 2;
     const uintptr_t pure = reinterpret_cast<uintptr_t>(&itlAnchorPureVirtual);
-#ifdef ITL_AWDL_GUARD_SEQUOIA
+#if defined(ITL_AWDL_GUARD_SONOMA)
+    // From 23J631's Kernel Debug Kit: 547 slots, 62 AWDL pure virtuals from 485.
+    const Anchor anchors[] = {
+        {0, reinterpret_cast<uintptr_t>(&itlAnchorAWDLProtocolD1)},
+        {297, reinterpret_cast<uintptr_t>(&itlAnchorWakeFlags)},
+        {379, reinterpret_cast<uintptr_t>(&itlAnchorInterfaceCCA)},
+        {420, reinterpret_cast<uintptr_t>(&itlAnchorStatsDump)},
+        {446, reinterpret_cast<uintptr_t>(&itlAnchorVirtualInit)},
+        {484, reinterpret_cast<uintptr_t>(&itlAnchorReserved15)},
+        {485, pure},
+        {546, pure},
+        {547, 0},
+    };
+#elif defined(ITL_AWDL_GUARD_SEQUOIA)
     const Anchor anchors[] = {
         {0, reinterpret_cast<uintptr_t>(&itlAnchorAWDLProtocolD1)},
         {299, reinterpret_cast<uintptr_t>(&itlAnchorWakeFlags)},

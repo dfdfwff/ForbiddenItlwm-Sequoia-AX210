@@ -151,6 +151,8 @@ static uint32_t awdlCoexCountryLastStatus, awdlCoexCountryAnswerSeconds;
 static uint16_t awdlCoexCountryNotice, awdlCoexCountryAnswered;
 static uint8_t awdlCoexCountrySource, awdlCoexCountrySourceAnswered;
 static bool awdlCoexCountryPending, awdlCoexCountryLearned;
+// Bits 0-3: a beacon hint on 149, 153, 157, 161; bit 4: on 6 (ITLAWDLCoexBeaconHints).
+static uint32_t awdlCoexBeaconHints;
 static uint64_t awdlCoexLastMoveUS;
 // A move waits for the listener's ring to drain; nothing new is submitted meanwhile (iface129 review, 1).
 static bool awdlCoexMovePending;
@@ -5569,7 +5571,7 @@ out:
 // frame with BSSID 00:25:00:ff:94:73: category 0x7f, OUI 00:17:f2, type 8,
 // version, subtype (0 PSF, 3 MIF), reserved, then phy_tx_time and
 // target_tx_time, little endian, in microseconds of the sender's clock.
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
 extern bool itlAWDLBuildAllowed();
 extern IOReturn itlAWDLReceiveAction(IOEthernetController*, mbuf_t, size_t, uint32_t, int32_t);
 extern void itlAWDLObserveData(IOEthernetController*, const uint8_t*, size_t);
@@ -5589,6 +5591,7 @@ static bool awdlRx;
 static bool awdlQueueProbe;
 static bool awdlQueueProbeAttempted;
 bool itlLogOn;
+bool itlLogStartup;
 // Fixed slots, so writers on any thread only need an atomic index. IOLog from
 // this kext does not reach the unified log, and XYLog is kprintf only.
 static char itlLogLines[512][160];
@@ -5607,6 +5610,30 @@ void itlLogRing(const char *fmt, ...)
     va_start(ap, fmt);
     vsnprintf(line + off, 160 - off, fmt, ap);
     va_end(ap);
+}
+uint32_t itlLogMark(void)
+{
+    return itlLogNext;
+}
+
+OSArray *itlLogCopySince(uint32_t mark)
+{
+    const uint32_t end = itlLogNext;
+    uint32_t count = end - mark;
+    if (count > 512)
+        count = 512;
+    OSArray *lines = OSArray::withCapacity(count ? count : 1);
+    if (!lines)
+        return nullptr;
+    for (uint32_t n = end - count; n != end; ++n) {
+        char copy[160];
+        strlcpy(copy, itlLogLines[n % 512], sizeof(copy));
+        if (OSString *line = OSString::withCString(copy)) {
+            lines->setObject(line);
+            line->release();
+        }
+    }
+    return lines;
 }
 // The test's own results, so the driver's messages cannot push them out.
 static char awdlEventLines[512][160];
@@ -6321,6 +6348,13 @@ static void awdlCoexPublish()
             root->setProperty("ITLAWDLCoexMgmtOK", awdlCoexMgmtOK, 32);
             root->setProperty("ITLAWDLCoexMgmtFailed", awdlCoexMgmtFailed, 32);
             root->setProperty("ITLAWDLCoexBaTxState", uint32_t(awdlCoexBaTxState), 32);
+            {
+                // The number alone was misread in a report (1 is still asking, not agreed).
+                static const char *const kBaTxStateNames[] = {"off", "asking", "agreed", "failed", "enabling"};
+                root->setProperty("ITLAWDLCoexBaTxStateName",
+                                  awdlCoexBaTxState >= 0 && awdlCoexBaTxState < int(nitems(kBaTxStateNames))
+                                      ? kBaTxStateNames[awdlCoexBaTxState] : "unknown");
+            }
             root->setProperty("ITLAWDLCoexBaTxQueueResult", awdlCoexBaTxQueueResult, 32);
             root->setProperty("ITLAWDLCoexBaTxPeerAdds", awdlCoexBaTxPeerAdds, 32);
             root->setProperty("ITLAWDLCoexBaTxAsks", awdlCoexBaTxAsks, 32);
@@ -6499,6 +6533,7 @@ static void awdlCoexPublish()
         root->setProperty("ITLAWDLCoexCountryAnswers", awdlCoexCountryAnswers, 32);
         root->setProperty("ITLAWDLCoexCountryLastStatus", awdlCoexCountryLastStatus, 32);
         root->setProperty("ITLAWDLCoexCountryLearned", awdlCoexCountryLearned);
+        root->setProperty("ITLAWDLCoexBeaconHints", awdlCoexBeaconHints, 32);
         root->setProperty("ITLAWDLCoexCountryFailures", awdlCoexCountryFailures, 32);
         root->setProperty("ITLAWDLCoexMoveDrainTimeouts", awdlCoexMoveDrainTimeouts, 32);
         root->setProperty("ITLAWDLCoexMovePending", awdlCoexMovePending);
@@ -6877,7 +6912,7 @@ awdlRxObserve(struct iwx_softc *sc, mbuf_t m, int chanidx, int rssi, uint32_t ti
                 memcpy(awdlLearnedPeer, data.source, sizeof(awdlLearnedPeer));
                 memcpy(awdlLearnedPeerIP, data.ip.bytes + 8, sizeof(awdlLearnedPeerIP));
             }
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
             itlAWDLObserveData(container_of(sc, ItlIwx, com)->getController(), f, capture);
 #endif
         }
@@ -6905,7 +6940,7 @@ awdlRxObserve(struct iwx_softc *sc, mbuf_t m, int chanidx, int rssi, uint32_t ti
                     f[1], f[22] & 0x0f, len > 33 ? f[29] : 0xff, len > 34 ? f[30] : 0xff);
         return;
     }
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
     // The borrowed Intel mbuf stays in the normal RX path. The receiver makes
     // an owned copy into an Apple pool buffer before invoking the peer engine.
     // rxi_rssi is dBm normalized by IWX_MIN_DBM; the native stack expects dBm.
@@ -7080,6 +7115,14 @@ awdlCoexCycleTask(void *arg)
         timeout_add_sec(&awdlCoexTimer, awdlCoexCycleSecs);
 }
 
+// Passive (no initiating) for the listener: the NVM's passive flag, unless a beaconing AP was heard on that
+// channel (net80211's beacon hint, cleared when the country changes). Radar and no-ad-hoc are checked apart.
+static inline bool awdlCoexNoIr(const struct ieee80211com *ic, unsigned ch)
+{
+    return ch <= IEEE80211_CHAN_MAX && (ic->ic_channels[ch].ic_flags & IEEE80211_CHAN_PASSIVE) &&
+        !isset(ic->ic_beacon_hint, ch);
+}
+
 // The one channel check for the listener's sending, used before building and again just before sending.
 // Records the reason (and clears it when the channel is fine) and publishes when what it would show changes.
 // The listener's own context at 80 MHz covers 149-161: every one of them has to stay allowed, not only the
@@ -7094,8 +7137,8 @@ static bool awdlCoexBlockIneligible(struct ieee80211com *ic, struct ieee80211_ch
         return true;
     for (unsigned ch = 149; ch <= 161; ch += 4) {
         const auto &sub = ic->ic_channels[ch];
-        if (!sub.ic_freq || !isset(ic->ic_chan_active, ch) ||
-            (sub.ic_flags & (IEEE80211_CHAN_PASSIVE | IEEE80211_CHAN_DFS | IEEE80211_CHAN_NOADHOC)))
+        if (!sub.ic_freq || !isset(ic->ic_chan_active, ch) || awdlCoexNoIr(ic, ch) ||
+            (sub.ic_flags & (IEEE80211_CHAN_DFS | IEEE80211_CHAN_NOADHOC)))
             return true;
     }
     return false;
@@ -7107,7 +7150,7 @@ static bool awdlCoexChannelEligible(struct ieee80211com *ic, struct ieee80211_ch
     const unsigned number = channel ? ieee80211_chan2ieee(ic, channel) : 0;
     const uint32_t flags = channel ? channel->ic_flags : 0;
     const uint32_t reason = (!channel || number > 255 || !ItlAWDL::fixedScheduleChannel(uint8_t(number)) ? 1U : 0U) |
-        ((flags & IEEE80211_CHAN_PASSIVE) ? 2U : 0U) | ((flags & IEEE80211_CHAN_DFS) ? 4U : 0U) |
+        ((channel && awdlCoexNoIr(ic, number)) ? 2U : 0U) | ((flags & IEEE80211_CHAN_DFS) ? 4U : 0U) |
         ((flags & IEEE80211_CHAN_NOADHOC) ? 8U : 0U) |
         (!channel || number > 255 || !isset(ic->ic_chan_active, number) ? 16U : 0U) |
         (number != awdlFixedChannel ? 32U : 0U) |
@@ -7325,7 +7368,7 @@ awdlCoexTxTask(void *arg)
 void ItlIwx::
 awdlCoexDataPump(struct iwx_softc *sc, unsigned budget)
 {
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
     struct ieee80211com *ic = &sc->sc_ic;
     const int gen = sc->sc_generation;
     struct iwx_node *in = (struct iwx_node *)ic->ic_bss;
@@ -7754,7 +7797,7 @@ static bool awdlVht80TwoStream(uint32_t rate)
 void ItlIwx::
 awdlCoexBaHandle(struct iwx_softc *sc)
 {
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
     const int gen = sc->sc_generation;
     if (awdlCoexBaGen != gen) {
         awdlCoexBaGen = gen;
@@ -8710,7 +8753,7 @@ awdlRxTask(void *arg)
             that->awdlMonitorPending != nullptr, that->awdlMonitorTxAttempted) :
         ItlAWDL::probeDelayUS(awdlFastProbe,
             that->awdlMonitorSubmitted, that->awdlMonitorPending != nullptr, that->awdlMonitorTxAttempted);
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
     if (awdlDataTx)
         // Output arrives without notice, so never sleep for long while it's on.
         nextDelay = MIN(nextDelay, (itlAWDLServiceTransmit(that->getController()) ||
@@ -8767,7 +8810,7 @@ iwx_rx_frame(struct iwx_softc *sc, mbuf_t m, int chanidx,
         if ((awdlFrame || baToUs) && cf[0] == 0xd0) {
             ++awdlCoexAwdlAction;
             ++(unsigned(chanidx) == awdlCoexChannel ? awdlCoexActionOnChannel : awdlCoexActionOffChannel);
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
             // The listener's frames come without the FCS; the hand-off expects four bytes after the
             // frame, as from monitor mode, so a copy gets them. Some setups also pad the frame with zeros
             // after its last TLV; that padding is cut, so the frame parses and is handed off as sent.
@@ -8950,7 +8993,7 @@ iwx_rx_frame(struct iwx_softc *sc, mbuf_t m, int chanidx,
         }
         else if (awdlFrame && (cf[0] & 0x0c) == 0x08) {
             ++awdlCoexAwdlData;
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
             // AWDL data heard by the listener, without the FCS. awdl0's hand-off expects the monitor-mode
             // layout, four bytes after the frame, so it gets a copy with them zeroed.
             const size_t dataLen = mbuf_len(m);
@@ -9519,6 +9562,12 @@ iwx_rx_mpdu_mq(struct iwx_softc *sc, mbuf_t m, void *pktdata,
     else
         desc_size = IWX_RX_DESC_SIZE_V1;
     
+    // The whole descriptor must be present before any field of it is read (security audit C02).
+    if (maxlen < desc_size) {
+        IC2IFP(ic)->netStat->inputErrors++;
+        mbuf_freem(m);
+        return;
+    }
     if (!(desc->status & htole16(IWX_RX_MPDU_RES_STATUS_CRC_OK)) ||
         !(desc->status & htole16(IWX_RX_MPDU_RES_STATUS_OVERRUN_OK))) {
         mbuf_freem(m);
@@ -9576,6 +9625,13 @@ iwx_rx_mpdu_mq(struct iwx_softc *sc, mbuf_t m, void *pktdata,
             IWX_RX_MPDU_RES_STATUS_SEC_CCM_ENC) {
             /* Padding is inserted after the IV. */
             hdrlen += IEEE80211_CCMP_HDRLEN;
+        }
+        // The header, its IV and the two padding bytes must all lie inside the frame.
+        if (hdrlen + 2 > len) {
+            ic->ic_stats.is_rx_tooshort++;
+            IC2IFP(ic)->netStat->inputErrors++;
+            mbuf_freem(m);
+            return;
         }
         
         //        memmove(m->m_data + 2, m->m_data, hdrlen);
@@ -10056,7 +10112,7 @@ awdlAfterCompletion(struct iwx_softc *sc)
     if (!awdlKickTransmit)
         return;
     awdlKickTransmit = false;
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
     // A busy link would otherwise never let the timer hand finished packets back.
     (void)itlAWDLServiceTransmit(getController());
 #endif
@@ -11225,7 +11281,7 @@ void ItlIwx::iwx_awdl_transport_probe(struct iwx_softc *sc)
         (channel->ic_flags & (IEEE80211_CHAN_PASSIVE | IEEE80211_CHAN_DFS | IEEE80211_CHAN_NOADHOC)))
         return;
     const uint64_t syncNowUS = awdlUptimeUS();
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
     if (awdlBaResponseLength && !awdlBurst.count && !awdlResend.held) {
         mbuf_t answer = nullptr;
         if (!mbuf_getpacket(MBUF_DONTWAIT, &answer) && answer && mbuf_maxlen(answer) >= awdlBaResponseLength) {
@@ -11482,7 +11538,7 @@ void ItlIwx::iwx_awdl_transport_probe(struct iwx_softc *sc)
 #endif
     if (awdlPeerTrain && !awdlPeerAudible())
         return;
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
     // The timer runs every millisecond around a transfer, so sync frames need their own pace.
     if (awdlDataTx && awdlPeerTrain) {
         // Only while no data has moved for a second: these frames take the single-frame path, and
@@ -11502,7 +11558,7 @@ void ItlIwx::iwx_awdl_transport_probe(struct iwx_softc *sc)
     uint64_t uptime, ns;
     clock_get_uptime(&uptime);
     absolutetime_to_nanoseconds(uptime, &ns);
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
     if (awdlSyncProbe) {
         mbuf_t syncPacket = nullptr;
         const auto result = itlAWDLBuildSyncProbe(getController(), &syncPacket, ns / 1000);
@@ -15016,9 +15072,17 @@ awdlCoexPickOwn(struct iwx_softc *sc, uint8_t *width)
     struct ieee80211com *ic = &sc->sc_ic;
     auto usable = [ic](unsigned ch) {
         const auto &c = ic->ic_channels[ch];
-        return c.ic_freq && isset(ic->ic_chan_active, ch) &&
-            !(c.ic_flags & (IEEE80211_CHAN_PASSIVE | IEEE80211_CHAN_DFS | IEEE80211_CHAN_NOADHOC));
+        return c.ic_freq && isset(ic->ic_chan_active, ch) && !awdlCoexNoIr(ic, ch) &&
+            !(c.ic_flags & (IEEE80211_CHAN_DFS | IEEE80211_CHAN_NOADHOC));
     };
+    uint32_t hints = isset(ic->ic_beacon_hint, 6) ? 16U : 0U;
+    for (unsigned ch = 149, bit = 1; ch <= 161; ch += 4, bit <<= 1)
+        if (isset(ic->ic_beacon_hint, ch))
+            hints |= bit;
+    if (hints != awdlCoexBeaconHints) {
+        awdlCoexBeaconHints = hints;
+        awdlCoexPublish();
+    }
     if (awdlCoexWide80FailedGen != sc->sc_generation && (ic->ic_channels[149].ic_flags & IEEE80211_CHAN_VHT80)) {
         bool all = true;
         for (unsigned ch = 149; ch <= 161; ch += 4)
@@ -15059,6 +15123,9 @@ awdlCoexCountryAnswer(struct iwx_softc *sc)
         awdlCoexPublish();
         return;
     }
+    // Beacon hints belong to the old country's rules; Linux drops them on a regulatory change too.
+    if (mcc != awdlCoexCountryAnswered)
+        memset(sc->sc_ic.ic_beacon_hint, 0, sizeof(sc->sc_ic.ic_beacon_hint));
     awdlCoexCountryAnswered = mcc;
     awdlCoexCountrySourceAnswered = source;
     awdlCoexCountryAnswerSeconds = mccUptimeSeconds();
@@ -15672,7 +15739,7 @@ awdlCoexTxTeardown(struct iwx_softc *sc)
 void ItlIwx::
 awdlCoexTxSend(struct iwx_softc *sc)
 {
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
     struct ieee80211com *ic = &sc->sc_ic;
     struct iwx_node *in = (struct iwx_node *)ic->ic_bss;
     if (!in || !in->in_phyctxt || !in->in_phyctxt->channel)
@@ -17726,7 +17793,9 @@ iwx_rx_pkt(struct iwx_softc *sc, struct iwx_rx_data *data, struct mbuf_list *ml)
                 break;
                 
             case IWX_REPLY_RX_MPDU_CMD: {
-                size_t maxlen = IWX_RBUF_SIZE - offset - minsz;
+                // This notification's own payload length (checked above against the buffer), not the
+                // space left in the buffer: a firmware record can't then reach into the next one.
+                size_t maxlen = iwx_rx_packet_payload_len(pkt);
                 nextoff = offset +
                 roundup(len, IWX_FH_RSCSR_FRAME_ALIGN);
                 nextpkt = (struct iwx_rx_packet *)

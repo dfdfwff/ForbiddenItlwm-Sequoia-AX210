@@ -10,7 +10,7 @@
 
 // Build marker shown as ItlwmAWDLInterfaceBuild; tools/build.py sets it per macOS target.
 #ifndef ITL_FORBIDDEN_BUILD
-#define ITL_FORBIDDEN_BUILD "forbidden-0.4.1-beta1"
+#define ITL_FORBIDDEN_BUILD "forbidden-0.5.0-test1"
 #endif
 
 // -itlawdlsamples: raw samples of native requests, templates and packets in the registry. They can hold
@@ -25,7 +25,7 @@ static bool awdlRawSamples;
 
 #include "AirportItlwmSkywalkInterface.hpp"
 #include "IOPCIEDeviceWrapper.hpp"
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
 #include "AirportAWDLInterface.hpp"
 #include <Airport/IO80211ManagementBuffer.h>
 #include <AWDLManagementFrame.hpp>
@@ -34,19 +34,22 @@ static bool awdlRawSamples;
 #include <AWDLDataPayload.hpp>
 #include <AWDLDataFrame.hpp>
 #include <Airport/IOSkywalkPacketView.h>
+#include <libkern/OSDebug.h>
+#include <mach/vm_param.h>
+#include <sys/proc.h>
 #endif
 
 #define super IO80211Controller
 OSDefineMetaClassAndStructors(AirportItlwm, IO80211Controller);
 OSDefineMetaClassAndStructors(CTimeout, OSObject)
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
 OSDefineMetaClassAndStructors(ItlAWDLInterface, IO80211AWDLProtocol)
 #endif
 
 IO80211WorkQueue *_fWorkloop;
 IOCommandGate *_fCommandGate;
 
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
 IOReturn ItlAWDLInterface::getAWDL_SYNC_ENABLED(apple80211_awdl_sync_enabled *data)
 {
     return nativeState.getEnabled(data);
@@ -372,7 +375,11 @@ IOReturn ItlAWDLInterface::receiveManagementFrame(IO80211Controller *controller,
 {
     if (!nativeStarted || !queueWorkLoop || !queueWorkLoop->inGate())
         return kIOReturnNotReady;
+#if __IO80211_TARGET == __MAC_14_4
+    auto *pool = itlGetInterfaceMgmtFramePool(this);   // Sonoma: the virtual interface owns the pool
+#else
     auto *pool = itlGetMgmtFramePool(controller);
+#endif
     if (!pool)
         return kIOReturnNotReady;
     struct Sink {
@@ -595,6 +602,74 @@ void ItlAWDLInterface::releaseNetworkResources()
     OSSafeReleaseNULL(queueWorkLoop);
 }
 
+// #13: on Sequoia 15.8, awdl0 is missing although this interface carries "BSD Name" = awdl0. The
+// BSD client writes that name before it creates the ifnet, so a failed start and a later detach look
+// the same from outside. Each entry records the time since boot, the client's class, whether that
+// client is already terminating (a detach) or still active (a failed start), the process that caused
+// the call, and for closes and finalisations the unslid return addresses, which map onto the build's
+// boot kernel collection. Nothing here changes behaviour.
+void ItlAWDLInterface::noteClientEvent(const char *what, IOService *client, long result, bool trace)
+{
+    uint64_t now = 0;
+    absolutetime_to_nanoseconds(mach_absolute_time(), &now);
+    char process[32] = {};
+    proc_selfname(process, sizeof(process));
+    const char *name = client && client->getMetaClass() ? client->getMetaClass()->getClassName() : "-";
+    char *entry = clientEvents[clientEventCount % clientEventCapacity];
+    int used = snprintf(entry, sizeof(clientEvents[0]), "%llu ms %s %s r=%ld inactive=%d proc=%s",
+                        now / 1000000ULL, what, name, result, client ? int(client->isInactive()) : -1, process);
+    if (trace && used > 0 && size_t(used) < sizeof(clientEvents[0])) {
+        void *frames[8] = {};
+        const unsigned depth = OSBacktrace(frames, 8);
+        for (unsigned i = 1; i < depth && size_t(used) < sizeof(clientEvents[0]) - 20; ++i) {
+            vm_offset_t unslid = 0;
+            vm_kernel_unslide_or_perm_external(vm_offset_t(frames[i]), &unslid);
+            used += snprintf(entry + used, sizeof(clientEvents[0]) - size_t(used), " %lx", (unsigned long)unslid);
+        }
+    }
+    ++clientEventCount;
+    if (OSArray *list = OSArray::withCapacity(clientEventCapacity)) {
+        const unsigned count = clientEventCount < clientEventCapacity ? clientEventCount : clientEventCapacity;
+        for (unsigned i = clientEventCount - count; i < clientEventCount; ++i) {
+            if (OSString *text = OSString::withCString(clientEvents[i % clientEventCapacity])) {
+                list->setObject(text);
+                text->release();
+            }
+        }
+        setProperty("ItlwmAWDLClientEvents", list);
+        list->release();
+    }
+    setProperty("ItlwmAWDLClientEventCount", clientEventCount, 32);
+}
+
+bool ItlAWDLInterface::handleOpen(IOService *client, IOOptionBits options, void *argument)
+{
+    const bool opened = IO80211AWDLProtocol::handleOpen(client, options, argument);
+    noteClientEvent("open", client, opened ? 1 : 0, false);
+    return opened;
+}
+
+void ItlAWDLInterface::handleClose(IOService *client, IOOptionBits options)
+{
+    noteClientEvent("close", client, long(options), true);
+    IO80211AWDLProtocol::handleClose(client, options);
+}
+
+#if __IO80211_TARGET == __MAC_15_2
+IOReturn ItlAWDLInterface::prepareBSDInterface(struct __ifnet *interface, unsigned int flags)
+{
+    const IOReturn result = IO80211AWDLProtocol::prepareBSDInterface(interface, flags);
+    noteClientEvent("prepare-bsd", nullptr, long(result), false);
+    return result;
+}
+
+void ItlAWDLInterface::finalizeBSDInterface(struct __ifnet *interface, unsigned int flags)
+{
+    noteClientEvent("finalize-bsd", nullptr, long(flags), true);
+    IO80211AWDLProtocol::finalizeBSDInterface(interface, flags);
+}
+#endif
+
 void ItlAWDLInterface::stop(IOService *provider)
 {
     const bool started = nativeStarted;
@@ -816,7 +891,7 @@ IOReturn ItlAWDLInterface::initializeNetwork(IO80211Controller *controller,
 
 IO80211VirtualInterface *AirportItlwm::createVirtualInterface(ether_addr *address, UInt role)
 {
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
     if (awdlInterfaceTest && role == APPLE80211_VIF_AWDL) {
         setProperty("ItlwmAWDLFactoryStage", "entered");
         if (!address)
@@ -844,7 +919,7 @@ IO80211VirtualInterface *AirportItlwm::createVirtualInterface(ether_addr *addres
 
 void AirportItlwm::observeAWDLDataFrame(const uint8_t *frame, size_t length)
 {
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
     if (!awdlInterfaceTest || !_fWorkloop || !_fWorkloop->inGate() ||
         !awdlManagementInputEnabled || !fAWDLInterface) return;
     auto *interface = static_cast<ItlAWDLInterface *>(fAWDLInterface);
@@ -855,7 +930,7 @@ void AirportItlwm::observeAWDLDataFrame(const uint8_t *frame, size_t length)
 #endif
 }
 
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
 void itlAWDLObserveData(IOEthernetController *owner, const uint8_t *frame, size_t length)
 {
     if (auto *controller = OSDynamicCast(AirportItlwm, owner)) controller->observeAWDLDataFrame(frame, length);
@@ -864,7 +939,7 @@ void itlAWDLObserveData(IOEthernetController *owner, const uint8_t *frame, size_
 
 IOReturn AirportItlwm::receiveAWDLActionFrame(mbuf_t packet, size_t frameLength, uint32_t channel, int32_t rssi)
 {
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
     // HAL and native control share _fWorkloop. Only deliver inside its gate.
     // Stop disables new handoffs and drains this counter before native teardown.
     // This monitor-specific entry takes a normalized span excluding four FCS
@@ -889,7 +964,7 @@ IOReturn AirportItlwm::receiveAWDLActionFrame(mbuf_t packet, size_t frameLength,
 #endif
 }
 
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
 IOReturn itlAWDLReceiveAction(IOEthernetController *owner, mbuf_t packet, size_t frameLength, uint32_t channel, int32_t rssi)
 {
     auto *controller = OSDynamicCast(AirportItlwm, owner);
@@ -902,7 +977,7 @@ IOReturn itlAWDLReceiveAction(IOEthernetController *owner, mbuf_t packet, size_t
 
 IOReturn AirportItlwm::buildAWDLSyncProbe(mbuf_t *packet, uint64_t nowUS)
 {
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
     static uint32_t awdlSyncMIBuilt, awdlSyncPSFBuilt, awdlSyncFallbackBuilt, awdlSyncMIWanted, awdlSyncMIMissing,
         awdlSyncPeerTLVsRefused, awdlSyncFailed;
     if (!packet || *packet) return kIOReturnBadArgument;
@@ -1029,7 +1104,7 @@ IOReturn AirportItlwm::buildAWDLSyncProbe(mbuf_t *packet, uint64_t nowUS)
 #endif
 }
 
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
 // Under the shared gate. The caller's sender consumes the packet.
 IOReturn itlAWDLBuildTransmit(IOEthernetController *owner, mbuf_t *packet)
 {
@@ -1130,7 +1205,7 @@ void AirportItlwm::teardownAWDLInterface()
         // terminate() needs the live native controller context and invokes our
         // stop() while dismantling the published service. Do not stop it first.
         detachVirtualInterface(fAWDLInterface, true);
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
         fAWDLInterface->release();
 #endif
         fAWDLInterface = nullptr;
@@ -1240,6 +1315,9 @@ void AirportItlwm::watchdogAction(IOTimerEventSource *timer)
 #ifdef AIRPORT_WCL
     if (fNetIf)
         static_cast<AirportItlwmSkywalkInterface *>(fNetIf)->wclPostLinkQuality();
+#else
+    if (fNetIf)
+        static_cast<AirportItlwmSkywalkInterface *>(fNetIf)->postLinkQuality();
 #endif
 
     watchdogTimer->setTimeoutMS(kWatchDogTimerPeriod);
@@ -1450,7 +1528,31 @@ static void itlMccProbeReadBios(IOPCIDevice *pci)
 }
 #endif
 
+// #14: when start fails, the controller node goes away and the driver's messages (kprintf only) are
+// lost. While start runs, they also go to the log ring; a failed start copies them onto the PCI
+// device, which stays, as ItlwmStartLog. A successful start removes that property again.
 bool AirportItlwm::start(IOService *provider)
+{
+    const uint32_t mark = itlLogMark();
+    itlLogStartup = true;
+    const bool started = startDriver(provider);
+    itlLogStartup = false;
+    if (IOPCIDevice *device = pciNub) {
+        if (started) {
+            device->removeProperty("ItlwmStartLog");
+            device->setProperty("ItlwmStartResult", "started");
+        } else {
+            if (OSArray *lines = itlLogCopySince(mark)) {
+                device->setProperty("ItlwmStartLog", lines);
+                lines->release();
+            }
+            device->setProperty("ItlwmStartResult", "failed");
+        }
+    }
+    return started;
+}
+
+bool AirportItlwm::startDriver(IOService *provider)
 {
     // Each kext is built for one macOS version, whose IO80211 class layouts it depends on.
     // On any other version it doesn't start, rather than risk a kernel panic.
@@ -1480,11 +1582,13 @@ bool AirportItlwm::start(IOService *provider)
     setProperty("DriverKitDriver", kOSBooleanFalse);
 #ifdef AIRPORT_WCL
     if (!initCCLogs()) {
+        XYLog("start: CCLog init fail\n");
         releaseAll();
         return false;
     }
 #endif
     if (!super::start(provider)) {
+        XYLog("start: IO80211Controller::start fail\n");
 #ifdef AIRPORT_WCL
         releaseAll();
 #endif
@@ -1496,10 +1600,12 @@ bool AirportItlwm::start(IOService *provider)
     pciNub->configWrite8(0x41, 0);
     if (pciNub->requestPowerDomainState(kIOPMPowerOn,
                                         (IOPowerConnection *) getParentEntry(gIOPowerPlane), IOPMLowestState) != IOPMNoErr) {
+        XYLog("start: PCI power domain request fail\n");
         super::stop(provider);
         return false;
     }
     if (initPCIPowerManagment(pciNub) == false) {
+        XYLog("start: PCI power management init fail\n");
         super::stop(pciNub);
         return false;
     }
@@ -1679,7 +1785,7 @@ bool AirportItlwm::start(IOService *provider)
 
 void AirportItlwm::stop(IOService *provider)
 {
-#if defined(AIRPORT_WCL) && (__IO80211_TARGET == __MAC_26_0 || __IO80211_TARGET == __MAC_15_2)
+#if defined(ITL_AWDL_NATIVE)
     if (_fWorkloop) {
         _fWorkloop->runAction([](OSObject *owner, void*, void*, void*, void*) -> IOReturn {
             auto *controller = static_cast<AirportItlwm *>(owner);

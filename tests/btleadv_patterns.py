@@ -3,7 +3,7 @@
 
 Default: the Tahoe 26.7.1 set against this Mac's /usr/sbin/bluetoothd.
   --set 2673 --binary <path>          the Tahoe 26.7.3 set against a 26.7.3 bluetoothd
-  --target sequoia --binary <path>   the Sequoia set against a 15.8.3 bluetoothd
+  --target sequoia --binary <path>   the Sequoia set against a 15.8, 15.8.2 or 15.8.3 bluetoothd
 For Tahoe it also checks that the other Tahoe set matches nothing in the binary.
 
 This shows each pattern matches exactly once and changes only what it should. It
@@ -13,14 +13,16 @@ import argparse,re
 from pathlib import Path
 root=Path(__file__).resolve().parents[1]
 parser=argparse.ArgumentParser()
-parser.add_argument('--target',choices=('tahoe','sequoia'),default='tahoe')
+parser.add_argument('--target',choices=('tahoe','sequoia','sonoma'),default='tahoe')
 parser.add_argument('--binary',type=Path,default=Path('/usr/sbin/bluetoothd'))
 parser.add_argument('--set',choices=('2671','2673'),default='2671',help='Tahoe only: which build set to check')
 args=parser.parse_args()
 whole=(root/'BTLEAdvFixup/BTLEAdvPatches.hpp').read_text()
-tahoe,sequoia=whole.split('#ifndef BTLEADV_SEQUOIA',1)[1].split('\n#else\n',1)
-source={'tahoe':tahoe,'sequoia':sequoia}[args.target]
-suffix='' if args.target=='sequoia' or args.set=='2671' else args.set
+body=whole.split('#if !defined(BTLEADV_SEQUOIA) && !defined(BTLEADV_SONOMA)',1)[1]
+tahoe,rest=body.split('\n#elif defined(BTLEADV_SEQUOIA)\n',1)
+sequoia,sonoma=rest.split('\n#else\n',1)
+source={'tahoe':tahoe,'sequoia':sequoia,'sonoma':sonoma}[args.target]
+suffix='' if args.target!='tahoe' or args.set=='2671' else args.set
 other='2673' if args.target=='tahoe' and args.set=='2671' else ''
 def table(name, sfx=None):
     name=name.replace('Find','Find'+(suffix if sfx is None else sfx)).replace('Replace','Replace'+(suffix if sfx is None else sfx))
@@ -43,7 +45,7 @@ for name in ('advertising','scanning','randomAddress','extendedConnection'):
     if binary.count(find)==0 and binary.count(replace)==1:
         binary=binary.replace(replace,find)
         print('%s: this read returned the patched page, checked against the original bytes'%name)
-queries={'tahoe':('ff9118090000','ff91a8090000'),'sequoia':('ff91c0070000','ff9148080000')}[args.target]
+queries={'tahoe':('ff9118090000','ff91a8090000'),'sequoia':('ff91c0070000','ff9148080000'),'sonoma':('ff9100070000','ff9170070000')}[args.target]
 checks=[('advertising',bytes.fromhex(queries[0])),('scanning',bytes.fromhex(queries[1]))]
 for name,query in checks:
     find,replace=table(name+'Find'),table(name+'Replace')
@@ -77,5 +79,5 @@ if args.target=='tahoe':
     for name in ('advertising','scanning','randomAddress','extendedConnection'):
         for kind in ('Find','Replace'):
             assert binary.count(table(name+kind, other))==0, ('other set matches', name, kind)
-label=args.target+('' if args.target=='sequoia' else ' '+args.set)
+label=args.target+(' '+args.set if args.target=='tahoe' else '')
 print('BTLEAdvFixup %s patterns: passed against %s (no controller test)'%(label,args.binary))

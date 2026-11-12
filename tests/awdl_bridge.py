@@ -7,7 +7,7 @@ import subprocess,tempfile
 root=Path(__file__).resolve().parents[1]
 source=(root/'ForbiddenItlwm/AirportItlwmV2.cpp').read_text()
 start=source.index('IOReturn AirportItlwm::buildAWDLSyncProbe(')
-body=source[start:source.index('\n#if defined(AIRPORT_WCL)',start+100)]
+body=source[start:source.index('\n#if defined(ITL_AWDL_NATIVE)',start+100)]
 program=r'''
 #include <AWDLLocalSchedule.hpp>
 #include <AWDLPeerProbe.hpp>
@@ -85,6 +85,6 @@ int main() {
 '''
 with tempfile.TemporaryDirectory(prefix='awdl-bridge-') as directory:
     src=Path(directory)/'test.cpp';src.write_text(program);exe=Path(directory)/'test'
-    subprocess.run(['xcrun','clang++','-std=c++14','-DAIRPORT_WCL','-D__IO80211_TARGET=__MAC_26_0',
+    subprocess.run(['xcrun','clang++','-std=c++14','-DAIRPORT_WCL','-D__IO80211_TARGET=__MAC_26_0','-DITL_AWDL_NATIVE=1',
         '-I'+str(root/'include'),'-fsanitize=address,undefined',str(src),'-o',str(exe)],check=True)
     subprocess.run([str(exe)],check=True)

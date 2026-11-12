@@ -1,5 +1,6 @@
 // Byte patterns for /usr/sbin/bluetoothd, x86_64. The Tahoe build carries two sets, for macOS 26.7.1
-// (25G241) and 26.7.3 (25G342); the Sequoia build (-DBTLEADV_SEQUOIA) carries one, for 15.8.3 (24H241).
+// (25G241) and 26.7.3 (25G342); the Sequoia build (-DBTLEADV_SEQUOIA) carries one, from 15.8.3 (24H241) and matching 15.8 and 15.8.2,
+// and the Sonoma build (-DBTLEADV_SONOMA) one, for 14.8.9 (23J631).
 // Every set is tried on every page, and a set only matches its own build's bluetoothd. The four sites and the edits are the same on both; only the addresses,
 // the vtable slots of the two capability queries and one struct offset differ.
 //
@@ -15,7 +16,7 @@
 #include <stdint.h>
 #include <stddef.h>
 namespace BTLEAdv {
-#ifndef BTLEADV_SEQUOIA
+#if !defined(BTLEADV_SEQUOIA) && !defined(BTLEADV_SONOMA)
 // je to the "unsupported" path, then "callq *0x918(%rcx)", the advertising sets query.
 static const uint8_t advertisingFind[] = {
     0x84,0xc0, 0x0f,0x84,0x38,0x01,0x00,0x00, 0xe8,0x08,0x78,0xf8,0xff,
@@ -66,8 +67,8 @@ static_assert(sizeof(advertisingFind2673) == sizeof(advertisingReplace2673), "pa
 static_assert(sizeof(scanningFind2673) == sizeof(scanningReplace2673), "patch size");
 static_assert(sizeof(randomAddressFind2673) == sizeof(randomAddressReplace2673), "patch size");
 static_assert(sizeof(extendedConnectionFind2673) == sizeof(extendedConnectionReplace2673), "patch size");
-#else
-// macOS 15.8.3 (24H241). The capability queries are "callq *0x7c0(%rcx)" (advertising sets) and
+#elif defined(BTLEADV_SEQUOIA)
+// macOS 15.8.3 (24H241); 15.8 (24H23) and 15.8.2 (24H232) match too. The capability queries are "callq *0x7c0(%rcx)" (advertising sets) and
 // "callq *0x848(%rcx)" (extended scanning); the chipset field is at 0x2f8. Each site was matched to
 // Tahoe's by the log strings its function uses ("BT chip support for extended advertisingsets",
 // "... extended scans") or by the identical code around it.
@@ -95,6 +96,36 @@ static_assert(sizeof(advertisingFind) == sizeof(advertisingReplace), "patch size
 static_assert(sizeof(scanningFind) == sizeof(scanningReplace), "patch size");
 static_assert(sizeof(randomAddressFind) == sizeof(randomAddressReplace), "patch size");
 static_assert(sizeof(extendedConnectionFind) == sizeof(extendedConnectionReplace), "patch size");
+#else
+// macOS 14.8.9 (23J631), from Apple's installer (codesign-verified). The capability queries are
+// "callq *0x700(%rcx)" (advertising sets) and "callq *0x770(%rcx)" (extended scanning), the je
+// displacement is 0x134, and the chipset field is at 0x2c4. The sites were matched by the same log
+// strings ("BT chip support for extended advertisingsets", "... extended scans") and, for the other
+// two, by the identical code around them (one-byte global setters in the same order as on Sequoia).
+static const uint8_t advertisingFind[] = {
+    0x84,0xc0, 0x0f,0x84,0x34,0x01,0x00,0x00, 0xe8,0x8e,0x7c,0xfa,0xff,
+    0x48,0x8b,0x08, 0x48,0x89,0xc7, 0xff,0x91,0x00,0x07,0x00,0x00, 0x41,0x89,0xc6 };
+static const uint8_t advertisingReplace[] = {
+    0x84,0xc0, 0x90,0x90,0x90,0x90,0x90,0x90, 0xe8,0x8e,0x7c,0xfa,0xff,
+    0x48,0x8b,0x08, 0x48,0x89,0xc7, 0xb8,0x01,0x00,0x00,0x00,0x90, 0x41,0x89,0xc6 };
+static const uint8_t scanningFind[] = {
+    0x84,0xc0, 0x0f,0x84,0x34,0x01,0x00,0x00, 0xe8,0x20,0x7f,0xfa,0xff,
+    0x48,0x8b,0x08, 0x48,0x89,0xc7, 0xff,0x91,0x70,0x07,0x00,0x00, 0x41,0x89,0xc6 };
+static const uint8_t scanningReplace[] = {
+    0x84,0xc0, 0x90,0x90,0x90,0x90,0x90,0x90, 0xe8,0x20,0x7f,0xfa,0xff,
+    0x48,0x8b,0x08, 0x48,0x89,0xc7, 0xb8,0x01,0x00,0x00,0x00,0x90, 0x41,0x89,0xc6 };
+static const uint8_t randomAddressFind[] = {
+    0x83,0xb8,0xc4,0x02,0x00,0x00,0x03, 0x77,0x23, 0x31,0xff, 0xe8,0xfc,0xa4,0xd6,0xff };
+static const uint8_t randomAddressReplace[] = {
+    0x83,0xb8,0xc4,0x02,0x00,0x00,0x03, 0x77,0x23, 0x90,0x90, 0x90,0x90,0x90,0x90,0x90 };
+static const uint8_t extendedConnectionFind[] = {
+    0x0f,0xb6,0xbd,0x6e,0xff,0xff,0xff, 0xe8,0xc8,0xbf,0xd7,0xff };
+static const uint8_t extendedConnectionReplace[] = {
+    0xbf,0x01,0x00,0x00,0x00,0x90,0x90, 0xe8,0xc8,0xbf,0xd7,0xff };
+static_assert(sizeof(advertisingFind) == sizeof(advertisingReplace), "patch size");
+static_assert(sizeof(scanningFind) == sizeof(scanningReplace), "patch size");
+static_assert(sizeof(randomAddressFind) == sizeof(randomAddressReplace), "patch size");
+static_assert(sizeof(extendedConnectionFind) == sizeof(extendedConnectionReplace), "patch size");
 #endif
 
 // Every patch this build tries, in the order they're applied. scanningOnly ones are skipped with -btlenoscan.
@@ -105,7 +136,7 @@ static const Patch kPatches[] = {
     BTLEADV_PATCH(randomAddressFind, randomAddressReplace, false),
     BTLEADV_PATCH(extendedConnectionFind, extendedConnectionReplace, false),
     BTLEADV_PATCH(scanningFind, scanningReplace, true),
-#ifndef BTLEADV_SEQUOIA
+#if !defined(BTLEADV_SEQUOIA) && !defined(BTLEADV_SONOMA)
     BTLEADV_PATCH(advertisingFind2673, advertisingReplace2673, false),
     BTLEADV_PATCH(randomAddressFind2673, randomAddressReplace2673, false),
     BTLEADV_PATCH(extendedConnectionFind2673, extendedConnectionReplace2673, false),

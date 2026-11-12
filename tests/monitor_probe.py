@@ -521,6 +521,6 @@ with tempfile.TemporaryDirectory(prefix="forbiddenitlwm-probe-") as directory:
     src = Path(directory) / "test.cpp"
     src.write_text(program)
     output = Path(directory) / "test"
-    subprocess.run(["xcrun", "clang++", "-std=c++14", "-DAIRPORT_WCL", "-D__IO80211_TARGET=__MAC_26_0", "-I" + str(root / "include"),
+    subprocess.run(["xcrun", "clang++", "-std=c++14", "-DAIRPORT_WCL", "-D__IO80211_TARGET=__MAC_26_0", "-DITL_AWDL_NATIVE=1", "-I" + str(root / "include"),
                     "-fsanitize=address,undefined", str(src), "-o", str(output)], check=True)
     subprocess.run([str(output)], check=True)

@@ -1,15 +1,16 @@
 # Installing ForbiddenItlwm
 
-This beta has been tested on one hackintosh: an HP Envy x360 13-bf with an Intel AX211, on macOS 26.7.1 (25G241), booted with OpenCore 1.0.8, with an iPhone 11. Users report it working on 26.7.2 (25G332) and 26.7.3 (25G342). The Sequoia build (15.8.x) was verified offline and hasn't been confirmed working on any hardware yet. The details are in [TESTED-HARDWARE.md](TESTED-HARDWARE.md). Read the whole page before you start.
+This beta has been tested on one hackintosh: an HP Envy x360 13-bf with an Intel AX211, on macOS 26.7.1 (25G241), booted with OpenCore 1.0.8, with an iPhone 11. Users report it working on 26.7.2 (25G332) and 26.7.3 (25G342). The Sequoia build (15.8.x) was verified offline. Users report Wi-Fi working on it, but AirDrop transfers don't work there yet. The Sonoma build (14.8.9, test build) was verified offline only. The details are in [TESTED-HARDWARE.md](TESTED-HARDWARE.md). Read the whole page before you start.
 
 ## Before you start
 
 - **Check your macOS build:** `sw_vers -buildVersion`.
   - **Tahoe:** `25G241`, `25G332` or `25G342`. Use the Tahoe kexts.
   - **Sequoia:** `24H23` (15.8) and `24H241` (15.8.3) were checked offline, and `24H232` (15.8.2) has 15.8.3's kernel; `24H32` (15.8.1) is expected to work. Use the Sequoia kexts. Sequoia isn't confirmed working on hardware yet.
+  - **Sonoma (test build):** `23J631` (14.8.9) was checked offline. Use the Sonoma kexts. On other Sonoma 14.4+ builds the Sonoma kext runs as plain Wi-Fi.
   - On any other build the driver keeps AirDrop off and works as plain Wi-Fi.
-- **Use the kexts for your macOS version.** ForbiddenItlwm and BTLEAdvFixup are built separately for Tahoe and for Sequoia. A ForbiddenItlwm built for the other version refuses to start, and BTLEAdvFixup's patterns won't match.
-- **Revert OCLP Wi-Fi root patches.** ForbiddenItlwm uses the Wi-Fi stack that ships with macOS. If you applied OpenCore Legacy Patcher's "Modern Wireless" root patches for an older AirportItlwm, revert them first.
+- **Use the kexts for your macOS version.** ForbiddenItlwm and BTLEAdvFixup are built separately for Tahoe, Sequoia and Sonoma. A ForbiddenItlwm built for the other version refuses to start, and BTLEAdvFixup's patterns won't match.
+- **Revert OCLP Wi-Fi root patches.** ForbiddenItlwm uses the Wi-Fi stack that ships with macOS. If you applied OpenCore Legacy Patcher's "Modern Wireless" root patches for an older AirportItlwm, revert them first. Also remove what that setup added to config.plist: a `Kernel → Block` entry for `com.apple.iokit.IOSkywalkFamily`, and injected `IOSkywalkFamily.kext` or `IO80211FamilyLegacy.kext`.
 - **Run the checker:** `bash tools/compat/check_compat.sh`. It tells you whether your card and Bluetooth are likely to work.
 - **Use a USB stick.** Copy your working EFI folder to a USB stick and make every change there. Your internal EFI stays as it is, so if anything goes wrong you just boot without the stick.
 - **Know the rollback:** boot from your internal EFI, or put the original `AirportItlwm.kext` and `config.plist` back on the stick.
@@ -48,6 +49,12 @@ You need the Xcode Command Line Tools (`xcode-select --install`). Full Xcode isn
    python3 tools/build.py --target sequoia --out build-sequoia
    ```
 
+   For Sonoma:
+
+   ```bash
+   python3 tools/build.py --target sonoma --out build-sonoma
+   ```
+
    The result is `ForbiddenItlwm.kext` in the output folder. The first build also generates `include/FwBinary.cpp` from the firmware in `itlwm/firmware`.
 
 3. Build BTLEAdvFixup. It needs the Lilu SDK, which comes with Lilu's **DEBUG** release. Make a folder holding `MacKernelSDK` and the DEBUG `Lilu.kext`, then:
@@ -56,9 +63,9 @@ You need the Xcode Command Line Tools (`xcode-select --install`). Full Xcode isn
    python3 tools/build_btleadv.py --out build/btleadv --tree /path/to/that/folder
    ```
 
-   For Sequoia, add `--target sequoia` and use another output folder. The result is `BTLEAdvFixup.kext` in the output folder.
+   For Sequoia, add `--target sequoia`, and for Sonoma `--target sonoma`, each with its own output folder. The result is `BTLEAdvFixup.kext` in the output folder.
 
-4. Optional, for developers: run the offline tests and the ABI audit. The audit checks every virtual slot of the AWDL interface against its macOS version's own table. It must report 568 of 568 for Tahoe, and 563 of 563 for Sequoia with `--target sequoia --build build-sequoia`:
+4. Optional, for developers: run the offline tests and the ABI audit. The audit checks every virtual slot of the AWDL interface against its macOS version's own table. It must report 568 of 568 for Tahoe, 563 of 563 for Sequoia with `--target sequoia --build build-sequoia`, and 547 of 547 for Sonoma with `--target sonoma --build build-sonoma`:
 
    ```bash
    python3 tools/test_awdl.py
@@ -90,6 +97,7 @@ All of this goes on the **USB stick's** EFI.
    | --- | --- | --- |
    | Tahoe | 25.0.0 | 25.99.99 |
    | Sequoia | 24.0.0 | 24.99.99 |
+   | Sonoma | 23.4.0 | 23.99.99 |
 
    Set `IntelBTPatcher.kext` to `Enabled` = false if you have it. This is required. Make sure no `AirportItlwm.kext` or `itlwm.kext` entry is still enabled.
 
@@ -107,7 +115,7 @@ All of this goes on the **USB stick's** EFI.
    ioreg -l -w0 | grep -E '"ItlwmAWDL(InterfaceBuild|BuildCheck)"|"ITLAWDLCoex(Added|Channel|CountryLearned)"'
    ```
 
-   You should see `forbidden-0.4.1-beta1` (`forbidden-0.4.1-beta1-sequoia` on Sequoia), `BuildCheck` `verified` (or `expected: …` on 15.8.1), `Added` Yes, `Channel` 149 and `CountryLearned` Yes. `Channel` 6 means the firmware hasn't opened channel 149: see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+   You should see `forbidden-0.5.0-test1` (`forbidden-0.5.0-test1-sequoia` on Sequoia, `forbidden-0.5.0-test1-sonoma` on Sonoma), `BuildCheck` `verified` (or `expected: …` on 15.8.1), `Added` Yes, `Channel` 149 and `CountryLearned` Yes. `Channel` 6 means the firmware hasn't opened channel 149: see [TROUBLESHOOTING.md](TROUBLESHOOTING.md).
 
 4. Or run `bash tools/compat/check_compat.sh` again. It now also reads the listener's state.
 5. Turn on AirDrop on both devices. Contacts Only works when the iPhone and the Mac share an Apple Account or know each other as contacts. Otherwise use Everyone for 10 Minutes.

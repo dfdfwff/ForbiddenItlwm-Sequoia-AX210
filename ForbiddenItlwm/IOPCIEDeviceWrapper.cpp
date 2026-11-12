@@ -85,9 +85,15 @@ probe(IOService *provider, SInt32 *score)
     if (!fHalService)
         fHalService = kind == 1 ? static_cast<ItlHalService *>(new ItlIwx) :
             kind == 2 ? static_cast<ItlHalService *>(new ItlIwm) : static_cast<ItlHalService *>(new ItlIwn);
-    // findPCICapability returns the offset, 0 when the capability is absent.
-    const UInt8 msixCap = UInt8(device->findPCICapability(PCI_CAP_ID_MSIX));
-    const UInt8 msiCap = UInt8(device->findPCICapability(PCI_CAP_ID_MSI));
+    // findPCICapability returns the capability register's value (0 when absent) and writes the
+    // offset through its pointer. 0.4.0 and 0.4.1 used the value as the offset: the low byte is the
+    // capability ID, so they wrote config offsets 0x13 and 0x07 instead of the MSI-X and MSI control
+    // words, never enabled MSI, and the driver failed to start on some machines (#14, #16).
+    UInt8 msixCap = 0, msiCap = 0;
+    if (!device->findPCICapability(PCI_CAP_ID_MSIX, &msixCap))
+        msixCap = 0;
+    if (!device->findPCICapability(PCI_CAP_ID_MSI, &msiCap))
+        msiCap = 0;
     if (!fHalService || (!msiCap && !msixCap)) {
         XYLog("%s %s\n", __FUNCTION__, fHalService ? "No MSI cap" : "no memory");
         OSSafeReleaseNULL(fHalService);

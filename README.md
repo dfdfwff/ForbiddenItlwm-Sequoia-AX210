@@ -6,9 +6,13 @@
 
 **AirDrop for Intel Wi-Fi cards on macOS.** ForbiddenItlwm is a fork of AirportItlwm that adds AWDL, the peer-to-peer Wi-Fi link AirDrop runs on. Apple's own Wi-Fi stack does the rest. Normal Wi-Fi stays connected while AirDrop works.
 
-It supports macOS Tahoe 26.7.x and, from 0.3.0, macOS Sequoia 15.8.x. **Each macOS version has its own kexts:** download the ones for your macOS.
+It supports macOS Tahoe 26.7.x and, from 0.3.0, macOS Sequoia 15.8.x. A test build adds macOS Sonoma 14.8.9. **Each macOS version has its own kexts:** download the ones for your macOS.
 
-> **Status: public beta (0.4.1-beta1). Experimental.** The project tests on one machine with one card (Intel AX211) on macOS 26.7.1 (25G241): an HP Envy x360 13-bf with an iPhone 11. Users report AirDrop working on 26.7.2 and 26.7.3 too. **The Sequoia build hasn't been confirmed working on any hardware yet**, and testers are needed. See [where it was tested](docs/TESTED-HARDWARE.md). Expect rough edges. Test it from a USB stick first, never from your only working EFI.
+> **Status: public beta (0.4.1-beta1). Experimental.** The project tests on one machine with one card (Intel AX211) on macOS 26.7.1 (25G241): an HP Envy x360 13-bf with an iPhone 11. Users report AirDrop working on 26.7.2 and 26.7.3 too. **On Sequoia, testers report working Wi-Fi, but AirDrop transfers don't work yet** (#7, #13), and testers are needed. See [where it was tested](docs/TESTED-HARDWARE.md). Expect rough edges. Test it from a USB stick first, never from your only working EFI.
+
+> **Check for new releases regularly.** Testers keep finding bugs, and fixes are released often. Before you report a problem, update to the newest version on the [releases page](https://github.com/retropineaple/ForbiddenItlwm/releases). To be notified, use **Watch → Custom → Releases** at the top of this page.
+
+> **Test build: [0.5.0-test1](https://github.com/retropineaple/ForbiddenItlwm/releases/tag/v0.5.0-test1)** adds macOS Sonoma 14.8.9, checked offline only, and Sonoma testers are wanted. **It also fixes Wi-Fi not starting on some machines with 0.4.0 and 0.4.1** (Wi-Fi off or greyed out), so if that happens to you on Tahoe or Sequoia, use 0.5.0-test1 or 0.3.x.
 
 > **Update from any earlier version.** 0.4.0-beta1 fixed security bugs in every earlier release, including one in the Wi-Fi password handshake code that came from the original itlwm. **On Sequoia, also update BTLEAdvFixup to 0.8.3 (in 0.4.1-beta1):** earlier Sequoia builds never started. See the [changelog](CHANGELOG.md).
 
@@ -60,7 +64,7 @@ Tested with the same hackintosh and iPhone, on Tahoe 26.7.1:
 
 ## Requirements
 
-- **macOS Tahoe 26.7.x or macOS Sequoia 15.8.x, with the matching kexts.** The driver hooks into macOS's Wi-Fi stack, so each macOS version gets its own build of ForbiddenItlwm and BTLEAdvFixup, and each build has to be checked. A kext for the wrong macOS version refuses to start.
+- **macOS Tahoe 26.7.x, macOS Sequoia 15.8.x or (test build) macOS Sonoma 14.8.9, with the matching kexts.** The driver hooks into macOS's Wi-Fi stack, so each macOS version gets its own build of ForbiddenItlwm and BTLEAdvFixup, and each build has to be checked. A kext for the wrong macOS version refuses to start.
 
   | macOS | Build | Status |
   | --- | --- | --- |
@@ -70,9 +74,11 @@ Tested with the same hackintosh and iPhone, on Tahoe 26.7.1:
   | Sequoia | 15.8 (24H23), 15.8.3 (24H241) | Wi-Fi side verified offline from Apple's Kernel Debug Kits. BTLEAdvFixup's patterns match 15.8.3. Not confirmed working on hardware yet |
   | Sequoia | 15.8.2 (24H232) | Same kernel as 15.8.3, so the build check passes. One user report (AX201): the Mac sees the iPhone, but sending doesn't work yet ([issue #7](https://github.com/retropineaple/ForbiddenItlwm/issues/7)). BTLEAdvFixup's patterns may not match |
   | Sequoia | 15.8.1 (24H32) | Expected to work (same kernel family), not checked offline. BTLEAdvFixup's patterns may not match |
+  | Sonoma | 14.8.9 (23J631) | Test build 0.5.0-test1. Wi-Fi side verified offline from Apple's Kernel Debug Kit, BTLEAdvFixup's patterns from Apple's installer. Not tested on hardware yet |
+  | Sonoma | Other 14.4 to 14.8.x builds | The Sonoma kext runs as plain Wi-Fi; AirDrop stays off |
   | Any other build | | AirDrop stays off and normal Wi-Fi works |
 
-  The driver checks the build itself when it starts. On a build it doesn't know, it keeps AirDrop off instead of risking a kernel panic. BTLEAdvFixup's patterns are exact bytes from specific `bluetoothd` builds (26.7.1, and 26.7.2 and 26.7.3, which share theirs, on Tahoe; 15.8.3 on Sequoia). On other builds, `tools/compat/check_compat.sh` shows whether they still match.
+  The driver checks the build itself when it starts. On a build it doesn't know, it keeps AirDrop off instead of risking a kernel panic. BTLEAdvFixup's patterns are exact bytes from specific `bluetoothd` builds (26.7.1, and 26.7.2 and 26.7.3, which share theirs, on Tahoe; 15.8.3 on Sequoia; 14.8.9 on Sonoma). On other builds, `tools/compat/check_compat.sh` shows whether they still match.
 - **An Intel Wi-Fi card that AirportItlwm supports.** Only the AX211 is tested by the project. Users have reported the Tahoe kext working on an AX201 and on other AX211 machines on 26.7.1, and on an AX210 on 26.7.2 and 26.7.3 (see [user reports](docs/TESTED-HARDWARE.md#user-reports)). The AX411, and CNVi radios on Alder Lake and newer, are close relatives and may work. See the [compatibility table](tools/compat/README.md).
 - **An Intel Bluetooth controller** with [IntelBluetoothFirmware](https://github.com/OpenIntelWireless/IntelBluetoothFirmware) and BlueToolFixup ([BrcmPatchRAM](https://github.com/acidanthera/BrcmPatchRAM)), plus [Lilu](https://github.com/acidanthera/Lilu) and this project's **BTLEAdvFixup**. AirDrop finds devices over Bluetooth LE before it uses Wi-Fi.
 - **OpenCore.**
@@ -138,7 +144,7 @@ These are plans, not promises. There are no dates, and the order isn't fixed.
 - **Instant Hotspot:** joining the iPhone's hotspot from the Wi-Fi menu without typing the password.
 - **Continuity Camera:** using the iPhone as the Mac's webcam.
 - **Faster connects:** cutting the time a transfer spends before any data moves, in both directions.
-- **macOS Sonoma 14 and Ventura 13:** separate kexts for each, like Tahoe and Sequoia. Each needs its own study of that version's Wi-Fi stack first, so support isn't certain.
+- **More Sonoma builds, and macOS Ventura 13:** Sonoma 14.8.9 is in a test build; other 14.8.x builds can follow with their Kernel Debug Kits. Ventura needs its own study of that version's Wi-Fi stack first, so support isn't certain.
 - **Fewer boot flags:** sensible defaults, so the beta doesn't need its long list of flags.
 - **A unified Bluetooth kext that survives macOS updates:** a Bluetooth kext made for ForbiddenItlwm, replacing BTLEAdvFixup, IntelBluetoothFirmware and BlueToolFixup, so all wireless connectivity needs just two kexts besides Lilu. Its patches would keep working across small macOS updates.
 - **AirPlay to the hackintosh, Sidecar and Universal Control:** these also use Apple's peer-to-peer links. None has been tried yet.

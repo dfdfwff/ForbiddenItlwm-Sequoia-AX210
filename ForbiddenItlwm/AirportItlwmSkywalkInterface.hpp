@@ -453,6 +453,15 @@ private:
     uint8_t wclPermanentMAC[6] = {};
     bool wclStopping;
 #endif
+#ifndef AIRPORT_WCL
+public:
+    // Sonoma (no WCL): called from the controller's 1 s watchdog. Sets en0's link quality metric from
+    // the signal strength, as the WCL builds do, so push, iMessage and other Apple services use Wi-Fi.
+    void postLinkQuality();
+private:
+    int32_t linkQualityReported = 0;   // 0: nothing reported since the link came up
+    uint32_t linkQualityTicks = 0;
+#endif
 
 private:
     AirportItlwm *instance;

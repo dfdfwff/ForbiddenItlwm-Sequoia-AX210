@@ -35,8 +35,18 @@ public:
     IOReturn receiveManagementFrame(IO80211Controller*, const uint8_t*, size_t, uint32_t, int32_t);
     void stop(IOService*) override;
     void free() override;
+    // #13 diagnostics: who opens and closes this interface (the BSD client that owns awdl0,
+    // the Wi-Fi daemons' user clients), and when the BSD interface is prepared and finalised.
+    bool handleOpen(IOService*, IOOptionBits, void*) override;
+    void handleClose(IOService*, IOOptionBits) override;
+#if __IO80211_TARGET == __MAC_15_2
+    IOReturn prepareBSDInterface(struct __ifnet*, unsigned int) override;
+    void finalizeBSDInterface(struct __ifnet*, unsigned int) override;
+#endif
     // Pure in IO80211VirtualInterface on Tahoe, and in IO80211SkywalkInterface on Sequoia.
+#if __IO80211_TARGET != __MAC_14_4   // not a virtual on Sonoma
     IOReturn setMacAddress(ether_addr&) override { return unsupported("setMacAddress"); }
+#endif
     IOReturn getSSID(apple80211_ssid_data*) override { return unsupported("getSSID"); }
     IOReturn getCHANNEL(apple80211_channel_data*) override { return unsupported("getCHANNEL"); }
     IOReturn getBSSID(apple80211_bssid_data*) override { return unsupported("getBSSID"); }
@@ -98,9 +108,15 @@ public:
     IOReturn setTX_RATE(apple80211_tx_rate*) override { return unsupported("setTX_RATE"); }
     IOReturn setP2P_COEX_PROTECTION(apple80211_p2p_coex_protection*) override { return unsupported("setP2P_COEX_PROTECTION"); }
     IOReturn setPSF_DWELL(apple80211_awdl_psf_dwell_params*) override { return unsupported("setPSF_DWELL"); }
+#if __IO80211_TARGET != __MAC_14_4   // Sonoma's AWDL protocol has no setAWDL_CONFIG (62 methods, not 63)
     IOReturn setAWDL_CONFIG(apple80211_awdl_config_request*) override { return unsupported("setAWDL_CONFIG"); }
+#endif
     IOReturn setAWDL_RTG_PEER_STATS_CONFIG(apple80211_rtg_peer_stats_cfg*) override { return unsupported("setAWDL_RTG_PEER_STATS_CONFIG"); }
 private:
+    void noteClientEvent(const char *what, IOService *client, long result, bool trace);
+    static constexpr unsigned clientEventCapacity = 12;
+    char clientEvents[clientEventCapacity][200] = {};
+    unsigned clientEventCount = 0;
     // These are desired host settings, not an active radio schedule. Native
     // synchronization/state/frame operations remain unsupported.
     IOLock *configurationLock = nullptr;

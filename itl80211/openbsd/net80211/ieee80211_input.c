@@ -1916,6 +1916,27 @@ ieee80211_recv_probe_resp(struct ieee80211com *ic, mbuf_t m,
         ic->ic_stats.is_rx_chanmismatch++;
         return;
     }
+
+    /*
+     * Beacon hint, as Linux's regulatory code does: an AP beaconing on the
+     * channel it was heard on shows that initiating there is allowed, even
+     * when the NVM marks the channel passive. Only beacons received on their
+     * own channel count. An AP operating at 80 MHz on 149-161 (VHT centre 155)
+     * covers all four 20 MHz channels. Radar (DFS) flags are not affected:
+     * users of the hint still refuse DFS channels.
+     */
+    if (!isprobe && rxi->rxi_chan != 0 && chan == rxi->rxi_chan &&
+        (capinfo & IEEE80211_CAPINFO_ESS) &&
+        !(ic->ic_channels[chan].ic_flags & IEEE80211_CHAN_DFS)) {
+        setbit(ic->ic_beacon_hint, chan);
+        if (vhtopmode != NULL && chan >= 149 && chan <= 161 &&
+            ((const struct ieee80211_ie_vht_operation *)vhtopmode)->chan_width == 1 &&
+            ((const struct ieee80211_ie_vht_operation *)vhtopmode)->center_freq_seg1_idx == 155) {
+            for (unsigned c = 149; c <= 161; c += 4)
+                if (!(ic->ic_channels[c].ic_flags & IEEE80211_CHAN_DFS))
+                    setbit(ic->ic_beacon_hint, c);
+        }
+    }
     
 #ifdef IEEE80211_DEBUG
     if (ieee80211_debug > 1 &&

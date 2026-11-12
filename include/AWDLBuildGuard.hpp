@@ -12,6 +12,7 @@
 // Sequoia: 24H23 (15.8) and 24H241 (15.8.3) offline, from their Kernel Debug Kits (identical
 // IO80211Family virtual tables; the AWDL subclass audited against them). Other 15.8.x kernels
 // (xnu-11417.140.69.71x) are allowed as "expected": the runtime vtable check still has to pass.
+// Sonoma: 23J631 (14.8.9) offline, from its Kernel Debug Kit. No other build yet.
 #include <stddef.h>
 #include <string.h>
 
@@ -22,7 +23,12 @@ struct VerifiedBuild {
     const char *kernel;    // the xnu build tag inside the kernel's version string
 };
 
-#if defined(__MAC_15_2) && __IO80211_TARGET == __MAC_15_2
+#if defined(__MAC_14_4) && __IO80211_TARGET == __MAC_14_4
+#define ITL_AWDL_GUARD_SONOMA 1
+constexpr VerifiedBuild kVerifiedBuilds[] = {
+    {"23J631", "xnu-10063.141.1.713.39~1/RELEASE_X86_64"},   // macOS 14.8.9
+};
+#elif defined(__MAC_15_2) && __IO80211_TARGET == __MAC_15_2
 #define ITL_AWDL_GUARD_SEQUOIA 1
 constexpr VerifiedBuild kVerifiedBuilds[] = {
     {"24H23",  "xnu-11417.140.69.712.69~1/RELEASE_X86_64"},   // macOS 15.8

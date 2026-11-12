@@ -4,6 +4,18 @@
 #include <stdio.h>
 using namespace ItlAWDL;
 int main() {
+#ifdef ITL_AWDL_GUARD_SONOMA
+    const char *n9 = "Darwin Kernel Version 23.6.0: Tue Jul 21 21:56:37 PDT 2026; root:xnu-10063.141.1.713.39~1/RELEASE_X86_64";
+    assert(checkBuild(n9, "23J631") == BuildCheck::Verified);
+    assert(checkBuild(n9, nullptr) == BuildCheck::Verified);
+    assert(checkBuild(n9, "23J630") == BuildCheck::UnknownBuild);   // build and kernel must agree
+    // Only 14.8.9 so far: an earlier 14.8.x kernel isn't "expected", it's unknown.
+    assert(checkBuild("root:xnu-10063.141.1.712.5~1/RELEASE_X86_64", nullptr) == BuildCheck::UnknownKernel);
+    assert(checkBuild("root:xnu-10063.141.1.713.39~1/DEVELOPMENT_X86_64", nullptr) == BuildCheck::UnknownKernel);
+    assert(checkBuild("root:xnu-11417.140.69.713.47~2/RELEASE_X86_64", "24H241") == BuildCheck::UnknownKernel);   // Sequoia kernel
+    puts("macOS build allow-list (Sonoma): passed (offline only)");
+    return 0;
+#endif
 #ifdef ITL_AWDL_GUARD_SEQUOIA
     const char *s1 = "Darwin Kernel Version 24.6.0: Sun Aug 23 20:30:56 PDT 2026; root:xnu-11417.140.69.712.69~1/RELEASE_X86_64";
     const char *s3 = "Darwin Kernel Version 24.6.0: Sun Oct 11 23:36:58 PDT 2026; root:xnu-11417.140.69.713.47~2/RELEASE_X86_64";

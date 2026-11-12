@@ -197,9 +197,12 @@ public:
     void *setInterfaceId(UInt id);
     int getInterfaceRole();
     
-public:
-    char _data[0x118];
+private:
+    // Sonoma 14.8.9 (23J631): the object is 0x118 bytes, as on Sequoia (its MetaClass constructor).
+    // Exact, so the AirDrop interface declarations built on this class line up with Apple's.
+    uint8_t _layout[0x118 - sizeof(IOSkywalkEthernetInterface)];
 };
+static_assert(sizeof(IO80211SkywalkInterface) == 0x118, "Sonoma IO80211SkywalkInterface ABI");
 
 #endif /* _IO80211SKYWALK_H */
 

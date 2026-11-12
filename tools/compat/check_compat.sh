@@ -74,6 +74,15 @@ elif [ "${OS_MAJOR:-0}" = "15" ]; then
         fail "On Sequoia, AirDrop needs macOS 15.8 or newer (this is $OS_VER). Normal Wi-Fi may still work with the Sequoia kext."
         BLOCKERS=$((BLOCKERS + 1))
     fi
+elif [ "${OS_MAJOR:-0}" = "14" ]; then
+    # The Sonoma kexts (in development): only 14.8.9 was checked offline.
+    if [ "$OS_BUILD" = "23J631" ]; then
+        pass "macOS $OS_VER ($OS_BUILD): supported by the Sonoma kexts. Their Wi-Fi stack was checked offline, but Sonoma"
+        pass "isn't confirmed working on hardware yet, so please report your result. Use the Sonoma ForbiddenItlwm and BTLEAdvFixup."
+    else
+        warn "macOS $OS_VER ($OS_BUILD): only Sonoma 14.8.9 (23J631) is checked. On this build the Sonoma kext keeps AirDrop off"
+        warn "(normal Wi-Fi may still work). Updating to 14.8.9 is the way to get AirDrop on Sonoma."
+    fi
 elif [ "${OS_MAJOR:-0}" = "26" ]; then
     warn "macOS 26 but build $OS_BUILD isn't verified yet. The driver keeps AirDrop off on it (normal Wi-Fi still works),"
     warn "unless you add -itlawdlanybuild, which risks a kernel panic. Please report this build so it can be checked."
@@ -250,18 +259,23 @@ LILU=$(kext_version as.vit9696.Lilu)
 if [ -n "$BTLEADV" ]; then pass "BTLEAdvFixup $BTLEADV is loaded."; else info "BTLEAdvFixup isn't loaded. It's part of the AirDrop package."; fi
 [ -n "$IBTPATCH" ] && [ -n "$BTLEADV" ] && warn "IntelBTPatcher and BTLEAdvFixup are both loaded. The tested setup disables IntelBTPatcher, as both hook the same USB requests."
 # BTLEAdvFixup patches four places in bluetoothd. Its patterns are exact bytes from macOS 26.7.1
-# (25G241) and 26.7.3 (25G342) for the Tahoe build, and from 15.8.3 (24H241) for the Sequoia build, so
+# (25G241) and 26.7.3 (25G342) for the Tahoe build, and from 15.8.3 (24H241) for the Sequoia build (also matching 15.8 and 15.8.2), so
 # they only match a bluetoothd of one of those builds. This reads /usr/sbin/bluetoothd
 # (read-only) and counts each site in its original form and, when BTLEAdvFixup is already running and
 # the page cache returns the patched page, in its patched form. Generated from
 # BTLEAdvFixup/BTLEAdvPatches.hpp; keep the two in step.
 BTD=/usr/sbin/bluetoothd
 if [ -r "$BTD" ] && command -v perl >/dev/null 2>&1; then
-    BT_SET=tahoe; [ "${OS_MAJOR:-0}" = "15" ] && BT_SET=sequoia
+    BT_SET=tahoe; [ "${OS_MAJOR:-0}" = "15" ] && BT_SET=sequoia; [ "${OS_MAJOR:-0}" = "14" ] && BT_SET=sonoma
     BT_PATTERNS=$(BT_SET=$BT_SET perl -0777 -ne '
         sub n { my $hex = shift; my $re = join "", map { "\\x$_" } ($hex =~ /(..)/g); my $c = () = /$re/sg; return $c; }
         my (@advertising, @scanning, @randomAddress, @extendedConnection);
-        if ($ENV{BT_SET} eq "sequoia") {
+        if ($ENV{BT_SET} eq "sonoma") {
+            @advertising = (n("84c00f8434010000e88e7cfaff488b084889c7ff91000700004189c6"), n("84c0909090909090e88e7cfaff488b084889c7b801000000904189c6"));
+            @scanning = (n("84c00f8434010000e8207ffaff488b084889c7ff91700700004189c6"), n("84c0909090909090e8207ffaff488b084889c7b801000000904189c6"));
+            @randomAddress = (n("83b8c402000003772331ffe8fca4d6ff"), n("83b8c402000003772390909090909090"));
+            @extendedConnection = (n("0fb6bd6effffffe8c8bfd7ff"), n("bf010000009090e8c8bfd7ff"));
+        } elsif ($ENV{BT_SET} eq "sequoia") {
             @advertising = (n("84c00f8438010000e8104cf9ff488b084889c7ff91c00700004189c6"), n("84c0909090909090e8104cf9ff488b084889c7b801000000904189c6"));
             @scanning = (n("84c00f8438010000e8ba4ef9ff488b084889c7ff91480800004189c6"), n("84c0909090909090e8ba4ef9ff488b084889c7b801000000904189c6"));
             @randomAddress = (n("83b8f8020000037723" . "31ffe859abd2ff"), n("83b8f802000003772390909090909090"));

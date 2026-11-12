@@ -2,18 +2,18 @@
 """Build BTLEAdvFixup.kext, the Lilu plugin that lets macOS start Bluetooth LE advertising on Intel controllers.
 
 One build per macOS version, because the bluetoothd patterns are per build:
---target tahoe (macOS 26.7.1, default) or --target sequoia (macOS 15.8.3)."""
+--target tahoe (macOS 26.7.1, default), --target sequoia (macOS 15.8.3) or --target sonoma (macOS 14.8.9)."""
 import argparse,hashlib,plistlib,re,subprocess
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
-NAME='BTLEAdvFixup';VERSION='0.8.3';IDENT='org.forbiddenitlwm.'+NAME
+NAME='BTLEAdvFixup';VERSION='0.9.0';IDENT='org.forbiddenitlwm.'+NAME
 def run(c): subprocess.run([str(x) for x in c],check=True)
 def main():
     p=argparse.ArgumentParser();p.add_argument('--out',type=Path,required=True)
     p.add_argument('--tree',type=Path,required=True,help='A folder holding MacKernelSDK and a DEBUG Lilu.kext (its Contents/Resources carries the Lilu SDK headers)')
-    p.add_argument('--target',choices=('tahoe','sequoia'),default='tahoe');a=p.parse_args()
+    p.add_argument('--target',choices=('tahoe','sequoia','sonoma'),default='tahoe');a=p.parse_args()
     sdk=a.tree/'MacKernelSDK';lilu=a.tree/'Lilu.kext/Contents/Resources'
-    base=FLAGS(sdk,lilu)+(['-DBTLEADV_SEQUOIA'] if a.target=='sequoia' else [])
+    base=FLAGS(sdk,lilu)+{'tahoe':[],'sequoia':['-DBTLEADV_SEQUOIA'],'sonoma':['-DBTLEADV_SONOMA']}[a.target]
     bundle=a.out/(NAME+'.kext')/'Contents';(bundle/'MacOS').mkdir(parents=True,exist_ok=True);objs=[]
     for s in (ROOT/'BTLEAdvFixup/kern_start.cpp',lilu/'Library/plugin_start.cpp'):
         o=a.out/(s.stem+'.o');run(base+['-DPRODUCT_NAME='+NAME,'-DMODULE_VERSION='+VERSION,'-c',s,'-o',o]);objs.append(o)

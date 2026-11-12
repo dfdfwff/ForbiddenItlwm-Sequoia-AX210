@@ -58,7 +58,7 @@ The `awdl0` transmit pool is 2048 packets. With the 128 used during bring-up, lo
 - patches `bluetoothd`'s pages in memory as they're validated (the way BlueToolFixup does) to take the "supported" path
 - adjusts outgoing HCI commands, such as the random address of each advertising set, and takes over IntelBTPatcher's fix-up before the first scan (IntelBTPatcher must be disabled, since Lilu panics if two plugins hook the same function)
 
-Its byte patterns are exact bytes from specific `bluetoothd` builds: 25G241's (26.7.1) and 25G342's (26.7.3, the same bytes as 26.7.2's) for the Tahoe build, and 24H241's (15.8.3) for the Sequoia build. Each set is tried on every page, and only matches its own build. The four sites and the edits are the same on all three; only addresses and, on Sequoia, two vtable slots and one struct offset differ. On another build the patterns may not match, and then nothing is changed. `tools/compat/check_compat.sh` reports whether they match a tester's `bluetoothd`.
+Its byte patterns are exact bytes from specific `bluetoothd` builds: 25G241's (26.7.1) and 25G342's (26.7.3, the same bytes as 26.7.2's) for the Tahoe build, and 24H241's (15.8.3) for the Sequoia build, which also match 15.8 (24H23) and 15.8.2 (24H232) unchanged. Each set is tried on every page, and only matches its own build. The four sites and the edits are the same on all three; only addresses and, on Sequoia, two vtable slots and one struct offset differ. On another build the patterns may not match, and then nothing is changed. `tools/compat/check_compat.sh` reports whether they match a tester's `bluetoothd`.
 
 ### 6. Country and channel 149
 
@@ -82,10 +82,18 @@ When either fails, the driver behaves like plain AirportItlwm. `-itlawdlanybuild
 - `IO80211Buffer` without virtual methods: the driver calls its exported functions directly on Sequoia
 - the same Skywalk packet, queue and registration layouts, the same RX metadata layout (RSSI at offset 0x2c) and the same out-of-band request layout
 
+**Sonoma 14.8.9 (test build) is the first target without WCL.** Its Wi-Fi stack is the older IO80211FamilyV2, as in upstream's Sonoma 14.4+ kext. The 23J631 Kernel Debug Kit showed:
+- 62 AWDL protocol methods (no `setAWDL_CONFIG`), 547 slots in all, and the same object sizes as Sequoia
+- an mbuf input and output path beside the Skywalk one, and no `setMacAddress` pure virtual
+- the management frame pool on the virtual interface (`IO80211VirtualInterface::getMgmtFramePool`) rather than the controller
+- the controller creates `awdl0` from slot 0xe00 (0xdd8 on Tahoe and Sequoia)
+- the same Skywalk packet, pool, queue and registration layouts as Sequoia, the same RX metadata (RSSI at 0x2c) and the same out-of-band request layout
+- joins go through the older handlers (`setASSOCIATE`, `setCIPHER_KEY`), which this release hardens
+
 ### 8. Link quality, and why it matters beyond AirDrop
 
 macOS publishes each interface's link-quality metric as `State:/Network/Interface/en0/LinkQuality`. Apple Push (`apsd`) won't connect over an interface rated "off" (-2), and iMessage, FaceTime and the account-device lookups that AirDrop between your own devices relies on all need push.
-- **The original problem:** the pre-Skywalk driver set the metric at link-up. On Tahoe that call was commented out, and `IO80211SkywalkInterface::setLQM` is an empty stub, so en0 stayed "off" forever. Sequoia's IO80211Family has the same stub, so the Sequoia build reports the metric too.
+- **The original problem:** the pre-Skywalk driver set the metric at link-up. On Tahoe that call was commented out, and `IO80211SkywalkInterface::setLQM` is an empty stub, so en0 stayed "off" forever. Sequoia's IO80211Family has the same stub, so the Sequoia build reports the metric too, and so does the Sonoma build, from its 1-second watchdog.
 - **What ForbiddenItlwm does:** every 2 seconds while connected, it calls `IOSkywalkNetworkInterface::reportLinkQuality` (which sets the kernel's metric) from the signal strength: 100 at -70 dBm or stronger, 50 at -80 dBm or stronger, 10 below. It reports "off" when the link drops.
 - **It also tells WCL the signal (Tahoe only):** the signal strength goes into WCL's link-quality update (byte 0 valid, the RSSI at offset 4), which Apple's `handleLqmUpdate` reads. That structure's layout is only known for Tahoe.
 
@@ -124,11 +132,12 @@ These each took one or more test boots to learn.
 | `include/AWDL*.hpp` | Frame parsing and building, data framing, peer schedule, regulatory rules. Mostly host-testable |
 | `include/Airport/macOS26/` | Tahoe's native class declarations, for 25G241 |
 | `include/Airport/macOS15/` | Sequoia's native class declarations, for 15.8 (24H23, 24H241) |
+| `include/Airport/macOS14/`, `include/Airport/*.h` | Sonoma's AWDL declarations (generated from 23J631), and the non-WCL base classes it builds on |
 | `BTLEAdvFixup/` | The Bluetooth LE advertising plugin |
 | `tests/`, `tools/test_awdl.py` | Offline tests, many of them on real driver functions extracted into mocks |
 | `tools/build.py`, `tools/sources.txt` | Command Line Tools build of `ForbiddenItlwm.kext` |
 | `tools/build_btleadv.py` | Build of `BTLEAdvFixup.kext` |
-| `tools/abi/` | The virtual table audit against 25G241 (Tahoe) and 24H241 (Sequoia) |
+| `tools/abi/` | The virtual table audit against 25G241 (Tahoe), 24H241 (Sequoia) and 23J631 (Sonoma) |
 | `ForbiddenItlwm/AWDLBuildGuard.cpp`, `include/AWDLBuildGuard.hpp` | The macOS build check |
 | `tools/awdl_*.py` | Readers for the driver's registry diagnostics |
 | `tools/compat/` | Tester scripts |
