@@ -15,6 +15,33 @@ apple80211VirtualRequest(UInt request_type, int request_number, IO80211VirtualIn
     if (request_type != SIOCGA80211 && request_type != SIOCSA80211)
         return kIOReturnError;
     IOReturn ret = kIOReturnError;
+
+#if defined(ITL_AWDL_NATIVE)
+    if (request_type == SIOCGA80211 && interface == fAWDLInterface &&
+        (request_number == APPLE80211_IOC_SUPPORTED_CHANNELS ||
+         request_number == APPLE80211_IOC_HW_SUPPORTED_CHANNELS)) {
+        auto *channels = static_cast<apple80211_sup_channel_data *>(data);
+        if (!channels)
+            return kIOReturnBadArgument;
+        bzero(channels, sizeof(*channels));
+        channels->version = APPLE80211_VERSION;
+        const uint16_t numbers[] = {6, 36, 40, 44, 48, 149, 153, 157, 161};
+        for (uint16_t number : numbers) {
+            if (channels->num_channels >= APPLE80211_MAX_CHANNELS)
+                break;
+            auto &entry = channels->supported_channels[channels->num_channels++];
+            entry.version = APPLE80211_VERSION;
+            entry.channel = number;
+            entry.flags = number == 6 ?
+                APPLE80211_C_FLAG_2GHZ | APPLE80211_C_FLAG_ACTIVE |
+                    APPLE80211_C_FLAG_20MHZ :
+                APPLE80211_C_FLAG_5GHZ | APPLE80211_C_FLAG_ACTIVE |
+                    APPLE80211_C_FLAG_80MHZ;
+        }
+        setProperty("ItlwmAWDLSupportedChannels", channels->num_channels, 32);
+        return kIOReturnSuccess;
+    }
+#endif
     
     switch (request_number) {
         case APPLE80211_IOC_CARD_CAPABILITIES:

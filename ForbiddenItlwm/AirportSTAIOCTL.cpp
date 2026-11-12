@@ -7,6 +7,9 @@
 //
 
 #include "AirportItlwm.hpp"
+#if defined(ITL_AWDL_NATIVE)
+#include "AirportAWDLInterface.hpp"
+#endif
 #include <sys/_netstat.h>
 
 extern IOCommandGate *_fCommandGate;
@@ -1109,6 +1112,26 @@ getSUPPORTED_CHANNELS(OSObject *object, struct apple80211_sup_channel_data *ad)
 {
     if (!ad)
         return kIOReturnError;
+#if defined(ITL_AWDL_NATIVE)
+    if (object == fAWDLInterface) {
+        bzero(ad, sizeof(*ad));
+        ad->version = APPLE80211_VERSION;
+        const uint16_t channels[] = {6, 36, 40, 44, 48, 149, 153, 157, 161};
+        for (uint16_t number : channels) {
+            if (ad->num_channels >= APPLE80211_MAX_CHANNELS)
+                break;
+            auto &entry = ad->supported_channels[ad->num_channels++];
+            entry.version = APPLE80211_VERSION;
+            entry.channel = number;
+            entry.flags = number == 6 ?
+                APPLE80211_C_FLAG_2GHZ | APPLE80211_C_FLAG_ACTIVE |
+                    APPLE80211_C_FLAG_20MHZ :
+                APPLE80211_C_FLAG_5GHZ | APPLE80211_C_FLAG_ACTIVE |
+                    APPLE80211_C_FLAG_80MHZ;
+        }
+        return kIOReturnSuccess;
+    }
+#endif
     ad->version = APPLE80211_VERSION;
     ad->num_channels = 0;
     struct ieee80211com *ic = fHalService->get80211Controller();

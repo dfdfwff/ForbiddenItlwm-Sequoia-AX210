@@ -47,10 +47,11 @@ public:
 #if __IO80211_TARGET != __MAC_14_4   // not a virtual on Sonoma
     IOReturn setMacAddress(ether_addr&) override { return unsupported("setMacAddress"); }
 #endif
-    IOReturn getSSID(apple80211_ssid_data*) override { return unsupported("getSSID"); }
-    IOReturn getCHANNEL(apple80211_channel_data*) override { return unsupported("getCHANNEL"); }
-    IOReturn getBSSID(apple80211_bssid_data*) override { return unsupported("getBSSID"); }
-    IOReturn getSTATE(apple80211_state_data*) override { return unsupported("getSTATE"); }
+    IOReturn getSSID(apple80211_ssid_data*) override;
+    IOReturn getCHANNEL(apple80211_channel_data*) override;
+    IOReturn getBSSID(apple80211_bssid_data*) override;
+    IOReturn getSTATE(apple80211_state_data*) override;
+    IOReturn copySupportedChannels(apple80211_sup_channel_data*);
     IOReturn getAWDL_SYNC_PARAMS(apple80211_awdl_sync_params *data) override { return readRequested(requested_AWDL_SYNC_PARAMS, data); }
     IOReturn getAWDL_SYNC_ENABLED(apple80211_awdl_sync_enabled *data) override;
     IOReturn getAWDL_EXTENSION_STATE_MACHINE_PARAMETERS(apple80211_awdl_extension_state_machine_parameter *data) override { return readRequested(requested_AWDL_EXTENSION_STATE_MACHINE_PARAMETERS, data); }

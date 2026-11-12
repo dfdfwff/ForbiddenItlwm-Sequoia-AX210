@@ -343,6 +343,15 @@ setVIRTUAL_IF_CREATE(apple80211_virt_if_create_data *data)
     if (attached) {
         result = static_cast<ItlAWDLInterface *>(instance->fAWDLInterface)->initializeNetwork(
             instance, instance->getWorkQueue(), address);
+        if (result == kIOReturnSuccess) {
+            instance->fAWDLAddress = address;
+            int bsdShell = 0;
+            if (PE_parse_boot_argn("-itlawdlbsdshell", &bsdShell, sizeof(bsdShell))) {
+                const IOReturn bsdResult = instance->attachAWDLBSDInterface();
+                publish(instance, "ItlwmAWDLBSDResult", bsdResult);
+            }
+            strlcpy((char *)data->bsd_name, "awdl0", sizeof(data->bsd_name));
+        }
         if (result != kIOReturnSuccess) {
             // initializeNetwork unwinds an unpublished object. Native virtual
             // terminate() assumes a started controller context, which a failed

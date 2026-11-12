@@ -42,6 +42,7 @@ ForbiddenItlwm/AirportItlwmV2.cpp
 itl80211/openbsd/crypto/md5.c
 itl80211/openbsd/crypto/arc4.c
 ForbiddenItlwm/AirportItlwmEthernetInterface.cpp
+ForbiddenItlwm/ItlAWDLBSDInterface.cpp
 ForbiddenItlwm/AirportItlwmSkywalkInterface.cpp
 ForbiddenItlwm/WCL/WCL.cpp
 itl80211/openbsd/crypto/blf.c

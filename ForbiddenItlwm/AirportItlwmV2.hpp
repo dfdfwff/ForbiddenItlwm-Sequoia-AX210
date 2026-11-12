@@ -270,6 +270,13 @@ public:
     bool magicPacketEnabled;
     bool magicPacketSupported;
     IO80211VirtualInterface *fAWDLInterface;
+    class ItlAWDLBSDInterface *fAWDLBSDInterface;
+    bool fCreatingAWDL;
+    ether_addr fAWDLAddress;
+    IOReturn attachAWDLBSDInterface();
+    void detachAWDLBSDInterface();
+    IOReturn startAWDLPeerManagerNow();
+    static IOReturn startAWDLPeerManagerGated(OSObject *, void *, void *, void *, void *);
     bool awdlInterfaceTest;
     bool awdlExtendFrames;
     uint16_t awdlProbeSequence = 0;

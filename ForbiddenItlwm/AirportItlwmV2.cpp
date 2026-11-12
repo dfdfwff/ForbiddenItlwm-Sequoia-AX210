@@ -22,11 +22,13 @@ static bool awdlRawSamples;
 #include <crypto/sha1.h>
 #include <net80211/ieee80211_priv.h>
 #include <net80211/ieee80211_var.h>
+#include <kern/thread_call.h>
 
 #include "AirportItlwmSkywalkInterface.hpp"
 #include "IOPCIEDeviceWrapper.hpp"
 #if defined(ITL_AWDL_NATIVE)
 #include "AirportAWDLInterface.hpp"
+#include "ItlAWDLBSDInterface.hpp"
 #include <Airport/IO80211ManagementBuffer.h>
 #include <AWDLManagementFrame.hpp>
 #include <AWDLLocalSchedule.hpp>
@@ -37,6 +39,13 @@ static bool awdlRawSamples;
 #include <libkern/OSDebug.h>
 #include <mach/vm_param.h>
 #include <sys/proc.h>
+
+extern "C" void *IO80211SkywalkInterface_getPeerManager(IO80211VirtualInterface *)
+    __asm__("__ZN23IO80211SkywalkInterface14getPeerManagerEv");
+extern "C" void IO80211AWDLPeerManager_doEnable(void *, const char *)
+    __asm__("__ZN22IO80211AWDLPeerManager8doEnableEPKc");
+extern "C" IOReturn IO80211AWDLPeerManager_configure(void *)
+    __asm__("__ZN22IO80211AWDLPeerManager9configureEv");
 #endif
 
 #define super IO80211Controller
@@ -50,6 +59,70 @@ IO80211WorkQueue *_fWorkloop;
 IOCommandGate *_fCommandGate;
 
 #if defined(ITL_AWDL_NATIVE)
+IOReturn ItlAWDLInterface::getSSID(apple80211_ssid_data *data)
+{
+    if (!data)
+        return kIOReturnBadArgument;
+    bzero(data, sizeof(*data));
+    data->version = APPLE80211_VERSION;
+    return kIOReturnSuccess;
+}
+
+IOReturn ItlAWDLInterface::getCHANNEL(apple80211_channel_data *data)
+{
+    if (!data)
+        return kIOReturnBadArgument;
+    bzero(data, sizeof(*data));
+    data->version = APPLE80211_VERSION;
+    data->channel.version = APPLE80211_VERSION;
+    data->channel.channel = 6;
+    data->channel.flags =
+        APPLE80211_C_FLAG_2GHZ | APPLE80211_C_FLAG_20MHZ;
+    return kIOReturnSuccess;
+}
+
+IOReturn ItlAWDLInterface::getBSSID(apple80211_bssid_data *data)
+{
+    if (!data)
+        return kIOReturnBadArgument;
+    bzero(data, sizeof(*data));
+    data->version = APPLE80211_VERSION;
+    memcpy(&data->bssid, localFrameAddress, sizeof(data->bssid));
+    return kIOReturnSuccess;
+}
+
+IOReturn ItlAWDLInterface::getSTATE(apple80211_state_data *data)
+{
+    if (!data)
+        return kIOReturnBadArgument;
+    bzero(data, sizeof(*data));
+    data->version = APPLE80211_VERSION;
+    data->state = APPLE80211_S_INIT;
+    return kIOReturnSuccess;
+}
+
+IOReturn ItlAWDLInterface::copySupportedChannels(apple80211_sup_channel_data *data)
+{
+    if (!data)
+        return kIOReturnBadArgument;
+    bzero(data, sizeof(*data));
+    data->version = APPLE80211_VERSION;
+    const uint16_t channels[] = {6, 36, 40, 44, 48, 149, 153, 157, 161};
+    for (uint16_t channel : channels) {
+        if (data->num_channels >= APPLE80211_MAX_CHANNELS)
+            break;
+        auto &entry = data->supported_channels[data->num_channels++];
+        entry.version = APPLE80211_VERSION;
+        entry.channel = channel;
+        entry.flags = channel == 6 ?
+            APPLE80211_C_FLAG_2GHZ | APPLE80211_C_FLAG_ACTIVE |
+                APPLE80211_C_FLAG_20MHZ :
+            APPLE80211_C_FLAG_5GHZ | APPLE80211_C_FLAG_ACTIVE |
+                APPLE80211_C_FLAG_80MHZ;
+    }
+    return kIOReturnSuccess;
+}
+
 IOReturn ItlAWDLInterface::getAWDL_SYNC_ENABLED(apple80211_awdl_sync_enabled *data)
 {
     return nativeState.getEnabled(data);
@@ -754,8 +827,16 @@ IOReturn ItlAWDLInterface::initializeNetwork(IO80211Controller *controller,
     const IOSkywalkPacketBufferPool::PoolOptions options = {
         128, 128, 2048, 1, 4096, 0, 0
     };
-    txPool = IOSkywalkPacketBufferPool::withName("itlwm-awdl-tx", this, 0, &txOptions);
-    rxPool = IOSkywalkPacketBufferPool::withName("itlwm-awdl-rx", this, 0, &options);
+    // Sequoia's nexus only accepts type 1 for an AWDL network provider.
+    // Type 0 creates the Skywalk object but fails the later BSD attach.
+    int poolType = 1;
+    int requestedPoolType = poolType;
+    if (PE_parse_boot_argn("itlawdlpooltype", &requestedPoolType, sizeof(requestedPoolType)) &&
+        requestedPoolType >= 0 && requestedPoolType <= 1)
+        poolType = requestedPoolType;
+    txPool = IOSkywalkPacketBufferPool::withName("itlwm-awdl-tx", this, poolType, &txOptions);
+    rxPool = IOSkywalkPacketBufferPool::withName("itlwm-awdl-rx", this, poolType, &options);
+    setProperty("ItlwmAWDLPoolType", poolType, 32);
     setProperty("ItlwmAWDLTxPoolPackets", txPoolPackets, 32);
     if (!txPool || !rxPool)
         return fail(kIOReturnNoMemory);
@@ -832,10 +913,18 @@ IOReturn ItlAWDLInterface::initializeNetwork(IO80211Controller *controller,
 
 
     IOSkywalkEthernetInterface::RegistrationInfo info = {};
+#if __IO80211_TARGET == __MAC_15_2
+    // Sequoia's generic registration helper takes the name and address from
+    // the interface object. Without these two properties it registers awdl0 as
+    // "en4" with a zero MAC, and configd closes the BSD client immediately.
+    setProperty(kIOInterfaceNamePrefix, "awdl");
+    setProperty(kIOMACAddress, const_cast<ether_addr *>(&address), sizeof(address));
+#endif
     if (!initRegistrationInfo(&info, 1, sizeof(info)))
         return fail(kIOReturnBadArgument);
-    // Offsets are from the 25G241 native AWDL registration path. The framework
-    // copies this metadata; the name points to a static string in the kext.
+    // Offsets are shared by Sequoia's and Tahoe's 0x130-byte registration
+    // record. The generic defaults describe ordinary Ethernet; AWDL needs its
+    // own type/subtype, name prefix, queue geometry and address.
     auto put32 = [&info](size_t offset, UInt32 value) {
         memcpy(info.bytes + offset, &value, sizeof(value));
     };
@@ -863,7 +952,14 @@ IOReturn ItlAWDLInterface::initializeNetwork(IO80211Controller *controller,
         stage("registration-failed");
         return fail(result);
     }
+#if __IO80211_TARGET == __MAC_15_2
+    // Sequoia closes the BSD client when the interface is registered in the
+    // stopped state. Its peer manager still owns the AWDL link state.
+    setRunningState(true);
+    setProperty("ItlwmAWDLRunningState", true);
+#else
     setRunningState(false);
+#endif
     noteQueueState("ItlwmAWDLQueueStateAtRegistration");
     int dataTransmit = 0;
     if (PE_parse_boot_argn("-itlawdldatatx", &dataTransmit, sizeof(dataTransmit)) ||
@@ -1201,6 +1297,7 @@ IOReturn itlAWDLBuildSyncProbe(IOEthernetController *owner, mbuf_t *packet, uint
 
 void AirportItlwm::teardownAWDLInterface()
 {
+    detachAWDLBSDInterface();
     if (fAWDLInterface) {
         // terminate() needs the live native controller context and invokes our
         // stop() while dismantling the published service. Do not stop it first.
@@ -1319,6 +1416,8 @@ void AirportItlwm::watchdogAction(IOTimerEventSource *timer)
     if (fNetIf)
         static_cast<AirportItlwmSkywalkInterface *>(fNetIf)->postLinkQuality();
 #endif
+    if (fAWDLBSDInterface && fAWDLBSDInterface->getIPv6Attempts() < 5)
+        fAWDLBSDInterface->ensureIPv6Address(fAWDLBSDInterface->getIPv6Attempts());
 
     watchdogTimer->setTimeoutMS(kWatchDogTimerPeriod);
 }
@@ -1346,6 +1445,9 @@ bool AirportItlwm::init(OSDictionary *properties)
     bool ret = super::init(properties);
     awdlSyncEnable = true;
     fAWDLInterface = nullptr;
+    fAWDLBSDInterface = nullptr;
+    fCreatingAWDL = false;
+    memset(&fAWDLAddress, 0, sizeof(fAWDLAddress));
     int awdlBootValue = 0;
     // AirDrop only starts on a macOS build whose Wi-Fi stack was verified (AWDLBuildGuard.cpp).
     awdlInterfaceTest = itlAWDLBuildAllowed() &&
@@ -1887,8 +1989,14 @@ bool AirportItlwm::configureInterface(IONetworkInterface *netif)
     struct _ifnet *ifp = &fHalService->get80211Controller()->ic_ac.ac_if;
 
     if (super::configureInterface(netif) == false) {
+        setProperty("ItlwmAWDLBSDConfigureStage", "super-failed");
         XYLog("super failed\n");
         return false;
+    }
+
+    if (fCreatingAWDL) {
+        setProperty("ItlwmAWDLBSDConfigureStage", "configured-default-output");
+        return true;
     }
 
     nd = netif->getParameter(kIONetworkStatsKey);
@@ -1908,6 +2016,22 @@ bool AirportItlwm::configureInterface(IONetworkInterface *netif)
 
 IONetworkInterface *AirportItlwm::createInterface()
 {
+    if (fCreatingAWDL) {
+        setProperty("ItlwmAWDLBSDCreateStage", "create-interface");
+        auto *netif = new ItlAWDLBSDInterface;
+        if (!netif) {
+            setProperty("ItlwmAWDLBSDCreateStage", "alloc-failed");
+            return nullptr;
+        }
+        if (!netif->initWithAWDL(this,
+                static_cast<ItlAWDLInterface *>(fAWDLInterface), fAWDLAddress)) {
+            setProperty("ItlwmAWDLBSDCreateStage", "init-failed");
+            netif->release();
+            return nullptr;
+        }
+        setProperty("ItlwmAWDLBSDCreateStage", "interface-created");
+        return netif;
+    }
     AirportItlwmEthernetInterface *netif = new AirportItlwmEthernetInterface;
     if (!netif)
         return NULL;
@@ -1916,6 +2040,119 @@ IONetworkInterface *AirportItlwm::createInterface()
         return NULL;
     }
     return netif;
+}
+
+IOReturn AirportItlwm::attachAWDLBSDInterface()
+{
+    if (fAWDLBSDInterface)
+        return kIOReturnSuccess;
+    if (!fAWDLInterface)
+        return kIOReturnNotReady;
+
+    IONetworkInterface *bsd = nullptr;
+    fCreatingAWDL = true;
+    setProperty("ItlwmAWDLBSDStage", "attaching");
+    const bool attached = IONetworkController::attachInterface(&bsd, false);
+    fCreatingAWDL = false;
+    if (!attached || !bsd) {
+        setProperty("ItlwmAWDLBSDStage", "attach-failed");
+        return kIOReturnError;
+    }
+    fAWDLBSDInterface = OSDynamicCast(ItlAWDLBSDInterface, bsd);
+    if (!fAWDLBSDInterface) {
+        bsd->release();
+        setProperty("ItlwmAWDLBSDStage", "wrong-class");
+        return kIOReturnError;
+    }
+    bsd->registerService();
+    setProperty("ItlwmAWDLBSDStage", "registered");
+    int pmStart = 0;
+    if (PE_parse_boot_argn("-itlawdlpmstart", &pmStart, sizeof(pmStart)))
+        startAWDLPeerManagerNow();
+    return kIOReturnSuccess;
+}
+
+struct AWDLPeerStartContext {
+    AirportItlwm *controller;
+    IOCommandGate *gate;
+    thread_call_t call;
+};
+
+static void
+awdlPeerStartThread(void *argument, void *)
+{
+    auto *context = static_cast<AWDLPeerStartContext *>(argument);
+    if (!context)
+        return;
+    const IOReturn result = context->gate->runAction(
+        AirportItlwm::startAWDLPeerManagerGated, context);
+    context->controller->setProperty("ItlwmAWDLPeerStartResult", (SInt32)result, 32);
+    context->controller->setProperty("ItlwmAWDLPeerStartScheduled", false);
+    thread_call_free(context->call);
+    context->gate->release();
+    context->controller->release();
+    IOFree(context, sizeof(*context));
+}
+
+IOReturn AirportItlwm::startAWDLPeerManagerNow()
+{
+    if (!fAWDLInterface)
+        return kIOReturnNotReady;
+    if (fAWDLInterface->getProperty("ItlwmAWDLPeerStarted") == kOSBooleanTrue ||
+        getProperty("ItlwmAWDLPeerStartScheduled") == kOSBooleanTrue)
+        return kIOReturnSuccess;
+    if (!_fCommandGate)
+        return kIOReturnNotReady;
+
+    auto *context = static_cast<AWDLPeerStartContext *>(
+        IOMalloc(sizeof(AWDLPeerStartContext)));
+    if (!context)
+        return kIOReturnNoMemory;
+    context->controller = this;
+    context->gate = _fCommandGate;
+    context->call = thread_call_allocate(awdlPeerStartThread, context);
+    if (!context->call) {
+        IOFree(context, sizeof(*context));
+        return kIOReturnNoMemory;
+    }
+    retain();
+    _fCommandGate->retain();
+    setProperty("ItlwmAWDLPeerStartScheduled", true);
+    thread_call_enter(context->call);
+    return kIOReturnSuccess;
+}
+
+IOReturn AirportItlwm::startAWDLPeerManagerGated(OSObject *owner, void *,
+                                                 void *, void *, void *)
+{
+    auto *that = OSDynamicCast(AirportItlwm, owner);
+    if (!that || !that->fAWDLInterface)
+        return kIOReturnNotReady;
+
+    that->fAWDLInterface->setLinkState(kIO80211NetworkLinkDown, 1, false, 0);
+    if (that->fAWDLBSDInterface && that->fAWDLBSDInterface->getIfnet())
+        ifnet_set_flags(that->fAWDLBSDInterface->getIfnet(), 0, IFF_RUNNING);
+    that->fAWDLInterface->setLinkState(kIO80211NetworkLinkUp, 1, false, 0);
+
+    void *manager = IO80211SkywalkInterface_getPeerManager(that->fAWDLInterface);
+    that->setProperty("ItlwmAWDLPeerManagerPresent", manager != nullptr);
+    if (manager) {
+        IO80211AWDLPeerManager_doEnable(manager, "itlwm");
+        const IOReturn result = IO80211AWDLPeerManager_configure(manager);
+        that->setProperty("ItlwmAWDLPeerConfigureResult", (SInt32)result, 32);
+    }
+    that->fAWDLInterface->setProperty("ItlwmAWDLPeerStarted", manager != nullptr);
+    if (that->fAWDLBSDInterface && that->fAWDLBSDInterface->getIfnet())
+        ifnet_set_flags(that->fAWDLBSDInterface->getIfnet(), IFF_RUNNING, IFF_RUNNING);
+    return manager ? kIOReturnSuccess : kIOReturnNotReady;
+}
+
+void AirportItlwm::detachAWDLBSDInterface()
+{
+    if (!fAWDLBSDInterface)
+        return;
+    detachInterface(fAWDLBSDInterface, true);
+    fAWDLBSDInterface = nullptr;
 }
 
 bool AirportItlwm::createMediumTables(const IONetworkMedium **primary)
