@@ -19,6 +19,12 @@ iPhone does not consistently keep the transmit Block Ack session in the
 `agreed` state. The separate `experiment/addba-amsdu` branch contains an
 untested ADDBA capability experiment for that issue.
 
+Handoff/Continuity and Universal Clipboard are currently verified only from
+iPhone to Mac. Mac Safari pages and clipboard data are not reliably published
+to the iPhone in the other direction. `ActivityAdvertisingAllowed`,
+`ActivityReceivingAllowed`, `sharingd`, `rapportd` and `useractivityd` are all
+enabled, so this is tracked separately from the AWDL Block Ack issue.
+
 ## Tested configuration
 
 ```text

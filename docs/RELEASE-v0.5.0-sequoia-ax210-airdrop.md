@@ -30,6 +30,10 @@ security chip.
 - **The first AirDrop connection usually needs about five seconds.** Device
   discovery, AWDL synchronization, Bonjour service resolution and QUIC setup
   happen before file data moves.
+- **Handoff and Universal Clipboard are currently one-way in the tested
+  setup.** iPhone to Mac works. Mac Safari pages and clipboard data do not
+  reliably appear on the iPhone. Handoff, Rapport and UserActivity services
+  are enabled; this is tracked separately from ADDBA.
 - **Fast iPhone → Mac throughput requires channel 149 at 80 MHz in the tested
   environment.** Channel 6 at 20 MHz works but is much slower.
 - **iPhone Mirroring is unavailable** because the tested machine has no T2

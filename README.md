@@ -29,6 +29,17 @@ CPU:        AMD Ryzen 7 5800H
 第一次 AirDrop 通常需要约 5 秒建立连接，这是蓝牙发现、AWDL 同步、
 Bonjour 和 QUIC 建连所需的时间，不属于文件传输耗时。
 
+## 已知问题
+
+- Mac → iPhone 的 ADDBA/TX aggregation 无法稳定保持，批量数据经常退回
+  单帧发送，因此速度慢于 iPhone → Mac。
+- Handoff/接力和通用剪贴板目前只验证到 iPhone → Mac。Mac → iPhone 的
+  Safari 接力页面和剪贴板暂时不会可靠出现。系统 Handoff 开关、Rapport
+  和 UserActivity 服务均处于启用状态，仍需继续分析发送方向。
+- 当前测试环境只有在 AWDL 使用 149 / 80 MHz 时才有较高的
+  iPhone → Mac 速度。
+- iPhone 镜像因缺少 T2 芯片不可用。
+
 ## 下载
 
 最新驱动包：
